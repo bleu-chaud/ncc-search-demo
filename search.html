@@ -321,14 +321,15 @@
                 <span class="search-time" id="searchTime"></span>
             </div>
             <div class="sort-controls">
-                <label>Sorteren:</label>
+                <label id="sortLabel">Sorteren:</label>
                 <select id="sortBy" onchange="search()">
                     <option value="boost_score:desc,sale_count:desc" selected>Aanbevolen</option>
+                    <option value="_text_match:desc,boost_score:desc">Relevantie</option>
                     <option value="default_price:asc">Prijs laag &rarr; hoog</option>
                     <option value="default_price:desc">Prijs hoog &rarr; laag</option>
                     <option value="sale_count:desc">Populairste</option>
                 </select>
-                <label>Per pagina:</label>
+                <label id="perPageLabel">Per pagina:</label>
                 <select id="perPage" onchange="search()">
                     <option value="12" selected>12</option>
                     <option value="24">24</option>
@@ -337,7 +338,7 @@
             </div>
         </div>
         <div class="product-grid" id="results">
-            <div class="empty-state"><div class="big">&#128269;</div><p>Producten laden...</p></div>
+            <div class="empty-state"><div class="big">&#128269;</div><p id="loadingText">Producten laden...</p></div>
         </div>
         <div class="pagination" id="pagination"></div>
     </main>
@@ -354,14 +355,37 @@ let CURRENCY = 'eur';
 let GROUP = 'enduser';
 function getColl() { return `products_${LANG}`; }
 
-const CAT_LABELS = {
-    8:"IP Camera's", 1710:"Dome Camera's", 1702:"Bullet Camera's", 1709:"PTZ Camera's",
-    1704:"Fisheye Camera's", 1705:"Box Camera's", 1706:"Thermal Camera's", 1703:"Mini Camera's",
-    1713:"Panoramische Camera's", 2811:"NVR's", 2803:"PoE Switches",
-    2810:"Opslag & Accessoires", 2820:"Software & Licenties", 2824:"Beugels & Behuizingen",
+// =========================================================================
+// i18n
+// =========================================================================
+const I18N = {
+    nl: {
+        cats: { 8:"IP Camera's", 1710:"Dome Camera's", 1702:"Bullet Camera's", 1709:"PTZ Camera's", 1704:"Fisheye Camera's", 1705:"Box Camera's", 1706:"Thermal Camera's", 1703:"Mini Camera's", 1713:"Panoramische Camera's", 2811:"NVR's", 2803:"PoE Switches", 2810:"Opslag & Accessoires", 2820:"Software & Licenties", 2824:"Beugels & Behuizingen" },
+        props: { 2853283:'PoE', 2853284:'4K', 2853285:'AI Analytics', 2853286:'Vandaalbestendig', 2853287:'Starlight' },
+        stock: { inStock:'Op voorraad', limited:'Beperkt', discontinued:'Niet leverbaar', preOrder:'Pre-order' },
+        sort: { recommended:'Aanbevolen', relevance:'Relevantie', priceLow:'Prijs laag \u2192 hoog', priceHigh:'Prijs hoog \u2192 laag', popular:'Populairste' },
+        ui: { sortLabel:'Sorteren:', perPage:'Per pagina:', category:'Categorie', brand:'Merk', properties:'Eigenschappen', price:'Prijs', availability:'Beschikbaarheid', options:'Opties', clearAll:'Wis alles', showBoost:'Toon boost breakdown', saleOnly:'Alleen sale producten', recOnly:'Alleen aanbevolen producten', results:'resultaten', products:'producten', loading:'Producten laden...', noResults:'Geen producten gevonden. Pas de filters aan of probeer een andere zoekterm.', noResultsFor:'resultaten voor', recommended:'Aanbevolen', fallback:'Geen resultaten gevonden. Bekijk deze aanbevolen producten:', pinned:'Gepromote resultaten worden getoond voor deze zoekopdracht.', group_enduser:'Eindgebruiker', group_reseller:'Reseller (-20%)', group_installer:'Installateur (-30%)' },
+    },
+    en: {
+        cats: { 8:"IP Cameras", 1710:"Dome Cameras", 1702:"Bullet Cameras", 1709:"PTZ Cameras", 1704:"Fisheye Cameras", 1705:"Box Cameras", 1706:"Thermal Cameras", 1703:"Mini Cameras", 1713:"Panoramic Cameras", 2811:"NVRs", 2803:"PoE Switches", 2810:"Storage & Accessories", 2820:"Software & Licenses", 2824:"Mounts & Housings" },
+        props: { 2853283:'PoE', 2853284:'4K', 2853285:'AI Analytics', 2853286:'Vandal-resistant', 2853287:'Starlight' },
+        stock: { inStock:'In stock', limited:'Limited', discontinued:'Discontinued', preOrder:'Pre-order' },
+        sort: { recommended:'Recommended', relevance:'Relevance', priceLow:'Price low \u2192 high', priceHigh:'Price high \u2192 low', popular:'Most popular' },
+        ui: { sortLabel:'Sort by:', perPage:'Per page:', category:'Category', brand:'Brand', properties:'Properties', price:'Price', availability:'Availability', options:'Options', clearAll:'Clear all', showBoost:'Show boost breakdown', saleOnly:'Sale products only', recOnly:'Recommended products only', results:'results', products:'products', loading:'Loading products...', noResults:'No products found. Adjust your filters or try a different search term.', noResultsFor:'results for', recommended:'Recommended', fallback:'No results found. Check out these recommended products:', pinned:'Promoted results are shown for this search query.', group_enduser:'End user', group_reseller:'Reseller (-20%)', group_installer:'Installer (-30%)' },
+    },
+    de: {
+        cats: { 8:"IP-Kameras", 1710:"Dome-Kameras", 1702:"Bullet-Kameras", 1709:"PTZ-Kameras", 1704:"Fisheye-Kameras", 1705:"Box-Kameras", 1706:"W\u00e4rmebild-Kameras", 1703:"Mini-Kameras", 1713:"Panorama-Kameras", 2811:"NVRs", 2803:"PoE-Switches", 2810:"Speicher & Zubeh\u00f6r", 2820:"Software & Lizenzen", 2824:"Halterungen & Geh\u00e4use" },
+        props: { 2853283:'PoE', 2853284:'4K', 2853285:'AI Analytics', 2853286:'Vandalensicher', 2853287:'Starlight' },
+        stock: { inStock:'Auf Lager', limited:'Begrenzt', discontinued:'Nicht lieferbar', preOrder:'Vorbestellung' },
+        sort: { recommended:'Empfohlen', relevance:'Relevanz', priceLow:'Preis niedrig \u2192 hoch', priceHigh:'Preis hoch \u2192 niedrig', popular:'Beliebteste' },
+        ui: { sortLabel:'Sortieren:', perPage:'Pro Seite:', category:'Kategorie', brand:'Marke', properties:'Eigenschaften', price:'Preis', availability:'Verf\u00fcgbarkeit', options:'Optionen', clearAll:'Alle l\u00f6schen', showBoost:'Boost-Aufschl\u00fcsselung anzeigen', saleOnly:'Nur Sale-Produkte', recOnly:'Nur empfohlene Produkte', results:'Ergebnisse', products:'Produkte', loading:'Produkte werden geladen...', noResults:'Keine Produkte gefunden. Passen Sie die Filter an oder versuchen Sie einen anderen Suchbegriff.', noResultsFor:'Ergebnisse f\u00fcr', recommended:'Empfohlen', fallback:'Keine Ergebnisse gefunden. Sehen Sie sich diese empfohlenen Produkte an:', pinned:'F\u00fcr diese Suchanfrage werden beworbene Ergebnisse angezeigt.', group_enduser:'Endbenutzer', group_reseller:'Reseller (-20%)', group_installer:'Installateur (-30%)' },
+    },
 };
+function t() { return I18N[LANG] || I18N.nl; }
+
+const CAT_LABELS = I18N.nl.cats;
 const PROP_LABELS = { 2853283:'PoE', 2853284:'4K', 2853285:'AI Analytics', 2853286:'Vandaalbestendig', 2853287:'Starlight' };
-const STOCK_LABELS = { inStock:'Op voorraad', limited:'Beperkt', discontinued:'Niet leverbaar', preOrder:'Pre-order' };
+const STOCK_LABELS = I18N.nl.stock;
 const CAMERA_SUBS = [1710,1702,1709,1704,1705,1706,1703,1713];
 const TOP_CATS = [8,2811,2803,2824];
 
@@ -399,7 +423,9 @@ async function search() {
     const hasQuery = S.q.length > 0;
 
     // Build sort_by: prepend text_match bucketing when there's a query
-    const sortBy = hasQuery
+    // Skip prepending if "Relevance" is already selected (already has _text_match)
+    const alreadyHasTextMatch = sortVal.includes('_text_match');
+    const sortBy = hasQuery && !alreadyHasTextMatch
         ? `_text_match(buckets:10):desc,${sortVal}`
         : sortVal;
 
@@ -470,15 +496,15 @@ async function search() {
             });
             renderResults(fallback, true);
             renderPagination(0);
-            document.getElementById('resultInfo').innerHTML = `<strong>0</strong> resultaten voor "${S.q}"`;
+            document.getElementById('resultInfo').innerHTML = `<strong>0</strong> ${t().ui.noResultsFor} "${S.q}"`;
             document.getElementById('searchTime').textContent = `${data.search_time_ms ?? '?'}ms`;
-            document.getElementById('headerMeta').innerHTML = `0 resultaten`;
+            document.getElementById('headerMeta').innerHTML = `0 ${t().ui.results}`;
         } else {
             renderResults(data, false);
             renderPagination(data.found || 0);
-            document.getElementById('resultInfo').innerHTML = `<strong>${data.found}</strong> producten`;
-            document.getElementById('searchTime').textContent = `${data.search_time_ms ?? '?'}ms server · ${Math.round(ms)}ms totaal`;
-            document.getElementById('headerMeta').innerHTML = `<strong>${data.found}</strong> resultaten`;
+            document.getElementById('resultInfo').innerHTML = `<strong>${data.found}</strong> ${t().ui.products}`;
+            document.getElementById('searchTime').textContent = `${data.search_time_ms ?? '?'}ms server · ${Math.round(ms)}ms total`;
+            document.getElementById('headerMeta').innerHTML = `<strong>${data.found}</strong> ${t().ui.results}`;
         }
     } catch (err) {
         if (err.name === 'AbortError') return;
@@ -618,7 +644,7 @@ function renderFacets(facets) {
                 const indent = CAMERA_SUBS.includes(id) ? ' indent' : '';
                 return `<li class="filter-item${c.count===0?' zero':''}${indent}">
                     <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('categories',${id})">
-                    <span>${CAT_LABELS[id]||id}</span><span class="count">${c.count}</span>
+                    <span>${(t().cats[id])||id}</span><span class="count">${c.count}</span>
                 </li>`;
             }).join('');
         } else if (facet.field_name === 'brand_name') {
@@ -635,7 +661,7 @@ function renderFacets(facets) {
                 const checked = S.filters.properties.includes(id);
                 return `<li class="filter-item${c.count===0?' zero':''}">
                     <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('properties',${id})">
-                    <span>${PROP_LABELS[id]||id}</span><span class="count">${c.count}</span>
+                    <span>${(t().props[id])||id}</span><span class="count">${c.count}</span>
                 </li>`;
             }).join('');
         } else if (facet.field_name === 'stock') {
@@ -643,7 +669,7 @@ function renderFacets(facets) {
                 const checked = S.filters.stock.includes(c.value);
                 return `<li class="filter-item${c.count===0?' zero':''}">
                     <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('stock','${c.value}')">
-                    <span>${STOCK_LABELS[c.value]||c.value}</span><span class="count">${c.count}</span>
+                    <span>${(t().stock[c.value])||c.value}</span><span class="count">${c.count}</span>
                 </li>`;
             }).join('');
         }
@@ -680,11 +706,12 @@ function clearAll() {
 function renderActiveFilters() {
     const el = document.getElementById('activeFilters');
     const tags = [];
-    for (const id of S.filters.categories) tags.push(`<span class="active-tag" onclick="removeFilter('categories',${id})">${CAT_LABELS[id]||id} &times;</span>`);
+    const l = t();
+    for (const id of S.filters.categories) tags.push(`<span class="active-tag" onclick="removeFilter('categories',${id})">${l.cats[id]||id} &times;</span>`);
     for (const b of S.filters.brand_name) tags.push(`<span class="active-tag" onclick="removeFilter('brand_name','${b.replace(/'/g,"\\'")}')">${b} &times;</span>`);
-    for (const id of S.filters.properties) tags.push(`<span class="active-tag" onclick="removeFilter('properties',${id})">${PROP_LABELS[id]||id} &times;</span>`);
-    for (const s of S.filters.stock) tags.push(`<span class="active-tag" onclick="removeFilter('stock','${s}')">${STOCK_LABELS[s]||s} &times;</span>`);
-    if (tags.length) tags.push(`<span class="clear-all" onclick="clearAll()">Wis alles</span>`);
+    for (const id of S.filters.properties) tags.push(`<span class="active-tag" onclick="removeFilter('properties',${id})">${l.props[id]||id} &times;</span>`);
+    for (const s of S.filters.stock) tags.push(`<span class="active-tag" onclick="removeFilter('stock','${s}')">${l.stock[s]||s} &times;</span>`);
+    if (tags.length) tags.push(`<span class="clear-all" onclick="clearAll()">${l.ui.clearAll}</span>`);
     el.innerHTML = tags.join('');
 }
 
@@ -743,15 +770,15 @@ function renderResults(data, isFallback = false) {
     const showBoost = document.getElementById('fBoost')?.checked;
 
     if (!hits.length && !isFallback) {
-        el.innerHTML = `<div class="empty-state"><div class="big">&#128528;</div><p>Geen producten gevonden. Pas de filters aan of probeer een andere zoekterm.</p></div>`;
+        el.innerHTML = `<div class="empty-state"><div class="big">&#128528;</div><p>${t().ui.noResults}</p></div>`;
         return;
     }
 
     // Banners
     if (isFallback) {
-        document.getElementById('pinnedBanner').textContent = 'Geen resultaten gevonden. Bekijk deze aanbevolen producten:';
+        document.getElementById('pinnedBanner').textContent = t().ui.fallback;
     } else if (data.override_metadata) {
-        document.getElementById('pinnedBanner').textContent = 'Gepromote resultaten worden getoond voor deze zoekopdracht.';
+        document.getElementById('pinnedBanner').textContent = t().ui.pinned;
     } else {
         document.getElementById('pinnedBanner').textContent = '';
     }
@@ -762,7 +789,8 @@ function renderResults(data, isFallback = false) {
         const title = hl.title?.snippet || d.title;
         const brand = hl.brand_name?.snippet || d.brand_name;
         const model = hl.model?.snippet || d.model;
-        const catNames = (d.categories||[]).filter(id => CAT_LABELS[id]).map(id => CAT_LABELS[id]);
+        const lc = t().cats;
+        const catNames = (d.categories||[]).filter(id => lc[id]).map(id => lc[id]);
         const usps = (d.usps||[]).slice(0, 4);
         const isPinned = hit.curated; // Typesense sets this for curated results
 
@@ -810,7 +838,7 @@ function renderResults(data, isFallback = false) {
                         ${p.symbol}${p.price.toFixed(2)}
                         ${d.sale && p.origPrice ? `<span class="original">${p.symbol}${p.origPrice.toFixed(2)}</span>` : ''}
                     </div>
-                    <div class="card-stock ${stockClass}">${STOCK_LABELS[d.stock]||d.stock||''}</div>
+                    <div class="card-stock ${stockClass}">${t().stock[d.stock]||d.stock||''}</div>
                 </div>
             </div>
         </div>`;
@@ -877,9 +905,45 @@ const FW_DEFAULTS = JSON.parse(JSON.stringify(FW));
 
 function switchLang(lang) {
     LANG = lang;
+    const l = t();
     // Update placeholder text
     const placeholders = { nl: "Zoek camera's, NVR's, accessoires...", en: "Search cameras, NVRs, accessories...", de: "Kameras, NVRs, Zubehör suchen..." };
     document.getElementById('q').placeholder = placeholders[lang] || placeholders.nl;
+
+    // Translate sort dropdown
+    const sortEl = document.getElementById('sortBy');
+    sortEl.options[0].text = l.sort.recommended;
+    sortEl.options[1].text = l.sort.relevance;
+    sortEl.options[2].text = l.sort.priceLow;
+    sortEl.options[3].text = l.sort.priceHigh;
+    sortEl.options[4].text = l.sort.popular;
+    document.getElementById('sortLabel').textContent = l.ui.sortLabel;
+    document.getElementById('perPageLabel').textContent = l.ui.perPage;
+
+    // Translate sidebar titles
+    const sidebarTitles = document.querySelectorAll('.filter-title');
+    const titleKeys = ['category', 'brand', 'properties', 'price', 'availability'];
+    sidebarTitles.forEach((el, i) => {
+        if (titleKeys[i] && l.ui[titleKeys[i]]) {
+            const toggle = el.querySelector('.toggle');
+            el.textContent = l.ui[titleKeys[i]] + ' ';
+            if (toggle) el.appendChild(toggle);
+        }
+    });
+
+    // Translate options panel
+    document.getElementById('optionsToggle').textContent = l.ui.options;
+    document.querySelector('#optionsPanel .admin-header h2').textContent = l.ui.options;
+    document.getElementById('fBoost').parentElement.lastChild.textContent = ' ' + l.ui.showBoost;
+    document.getElementById('fSale').parentElement.lastChild.textContent = ' ' + l.ui.saleOnly;
+    document.getElementById('fRec').parentElement.lastChild.textContent = ' ' + l.ui.recOnly;
+
+    // Translate group select
+    const groupEl = document.getElementById('groupSelect');
+    groupEl.options[0].text = l.ui.group_enduser;
+    groupEl.options[1].text = l.ui.group_reseller;
+    groupEl.options[2].text = l.ui.group_installer;
+
     S.page = 1;
     search();
 }

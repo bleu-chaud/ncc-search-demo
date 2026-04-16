@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netcamcenter — Producten zoeken</title>
+    <style>
+        :root {
+            --bg: #f7f7f8; --white: #fff; --text: #1a1a2e; --text-muted: #6b7280;
+            --text-dim: #9ca3af; --border: #e5e7eb; --border-light: #f0f0f0;
+            --accent: #2563eb; --accent-light: #eff6ff; --accent-hover: #1d4ed8;
+            --green: #16a34a; --green-bg: #f0fdf4; --red: #dc2626; --red-bg: #fef2f2;
+            --orange: #ea580c; --orange-bg: #fff7ed; --purple: #7c3aed; --purple-bg: #f5f3ff;
+            --radius: 8px; --shadow: 0 1px 3px rgba(0,0,0,0.08); --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+
+        /* ── Header ── */
+        .header { background:var(--white); border-bottom:1px solid var(--border); padding:0.75rem 1.5rem; display:flex; align-items:center; gap:1rem; position:sticky; top:0; z-index:100; box-shadow:var(--shadow); }
+        .header .logo { font-weight:700; font-size:1.1rem; white-space:nowrap; }
+        .header .logo span { color:var(--accent); }
+        .search-wrap { flex:1; max-width:600px; position:relative; }
+        .search-wrap input { width:100%; padding:0.6rem 1rem 0.6rem 2.5rem; border:2px solid var(--border); border-radius:var(--radius); font-size:0.9rem; outline:none; background:var(--bg); transition:border-color 0.15s; }
+        .search-wrap input:focus { border-color:var(--accent); background:var(--white); }
+        .search-wrap input::placeholder { color:var(--text-dim); }
+        .search-wrap .icon { position:absolute; left:0.75rem; top:50%; transform:translateY(-50%); color:var(--text-dim); font-size:0.9rem; pointer-events:none; }
+        .header-controls { display:flex; align-items:center; gap:0.4rem; }
+        .hdr-select { padding:0.3rem 0.4rem; border:1px solid var(--border); border-radius:4px; font-size:0.72rem; background:var(--white); color:var(--text); cursor:pointer; }
+        .header-meta { font-size:0.75rem; color:var(--text-muted); white-space:nowrap; }
+        .header-meta strong { color:var(--text); }
+
+        /* EOL lightswitch */
+        .eol-switch { display:flex; align-items:center; gap:0.4rem; cursor:pointer; white-space:nowrap; }
+        .eol-switch input { display:none; }
+        .eol-slider { width:34px; height:18px; background:var(--border); border-radius:9px; position:relative; transition:background 0.2s; flex-shrink:0; }
+        .eol-slider::after { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; background:var(--white); border-radius:50%; transition:transform 0.2s; box-shadow:0 1px 2px rgba(0,0,0,0.2); }
+        .eol-switch input:checked + .eol-slider { background:var(--accent); }
+        .eol-switch input:checked + .eol-slider::after { transform:translateX(16px); }
+        .eol-label { font-size:0.72rem; color:var(--text-muted); font-weight:500; }
+
+        /* ── Autocomplete dropdown ── */
+        .ac-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--white); border:1px solid var(--border); border-top:none; border-radius:0 0 var(--radius) var(--radius); box-shadow:var(--shadow-md); display:none; z-index:200; max-height:360px; overflow-y:auto; }
+        .ac-dropdown.open { display:block; }
+        .ac-section-title { font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-dim); padding:0.5rem 0.75rem 0.2rem; }
+        .ac-item { display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.75rem; cursor:pointer; font-size:0.85rem; }
+        .ac-item:hover, .ac-item.active { background:var(--accent-light); }
+        .ac-item .ac-title { flex:1; }
+        .ac-item .ac-brand { font-size:0.7rem; color:var(--text-muted); }
+        .ac-item .ac-price { font-size:0.75rem; font-weight:600; color:var(--green); white-space:nowrap; }
+        .ac-item mark { background:#fef08a; padding:0 1px; border-radius:2px; }
+
+        /* ── Typo correction banner ── */
+        .typo-banner { padding:0.5rem 1.5rem; background:var(--orange-bg); border-bottom:1px solid #fed7aa; font-size:0.82rem; color:var(--orange); }
+        .typo-banner a { color:var(--accent); cursor:pointer; text-decoration:underline; }
+        .typo-banner:empty { display:none; }
+
+        /* ── Pinned result indicator ── */
+        .pinned-banner { padding:0.35rem 1.5rem; background:var(--purple-bg); border-bottom:1px solid #e9d5ff; font-size:0.75rem; color:var(--purple); }
+        .pinned-banner:empty { display:none; }
+
+        /* ── Layout ── */
+        .layout { display:grid; grid-template-columns:260px 1fr; gap:0; max-width:1400px; margin:0 auto; min-height:calc(100vh - 56px); }
+
+        /* ── Sidebar ── */
+        .sidebar { background:var(--white); border-right:1px solid var(--border); padding:0; overflow-y:auto; height:calc(100vh - 56px); position:sticky; top:56px; }
+        .active-filters { display:flex; flex-wrap:wrap; gap:0.3rem; padding:0.5rem 1rem; background:var(--accent-light); border-bottom:1px solid var(--border-light); }
+        .active-filters:empty { display:none; padding:0; }
+        .active-tag { display:inline-flex; align-items:center; gap:0.2rem; padding:0.1rem 0.45rem; background:var(--white); border:1px solid var(--accent); border-radius:12px; font-size:0.65rem; color:var(--accent); cursor:pointer; }
+        .active-tag:hover { background:var(--accent); color:var(--white); }
+        .clear-all { font-size:0.65rem; color:var(--red); cursor:pointer; padding:0.1rem 0.4rem; }
+        .clear-all:hover { text-decoration:underline; }
+
+        .filter-section { border-bottom:1px solid var(--border-light); padding:0.75rem 1rem; }
+        .filter-section:last-child { border-bottom:none; }
+        .filter-title { font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:0.4rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; }
+        .filter-title .toggle { font-size:0.55rem; color:var(--text-dim); }
+        .filter-list { list-style:none; }
+        .filter-list.collapsed { display:none; }
+        .filter-item { display:flex; align-items:center; gap:0.35rem; padding:0.15rem 0; font-size:0.8rem; cursor:pointer; }
+        .filter-item:hover { color:var(--accent); }
+        .filter-item input[type="checkbox"] { accent-color:var(--accent); cursor:pointer; width:14px; height:14px; }
+        .filter-item .count { margin-left:auto; font-size:0.65rem; color:var(--text-dim); background:var(--bg); padding:0.05rem 0.3rem; border-radius:10px; min-width:1.4rem; text-align:center; }
+        .filter-item.zero { opacity:0.35; pointer-events:none; }
+        .filter-item.indent { padding-left:1.2rem; }
+        .price-inputs { display:flex; gap:0.4rem; align-items:center; margin-top:0.25rem; }
+        .price-inputs input { width:100%; padding:0.3rem 0.4rem; border:1px solid var(--border); border-radius:4px; font-size:0.78rem; }
+        .price-inputs .sep { color:var(--text-dim); font-size:0.7rem; }
+
+        /* ── Main ── */
+        .main { padding:1rem 1.5rem; }
+        .sort-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:0.5rem; }
+        .result-info { font-size:0.82rem; color:var(--text-muted); }
+        .result-info strong { color:var(--text); }
+        .search-time { font-size:0.65rem; color:var(--text-dim); }
+        .sort-controls { display:flex; gap:0.5rem; align-items:center; }
+        .sort-controls label { font-size:0.72rem; color:var(--text-muted); }
+        .sort-controls select { padding:0.25rem 0.4rem; border:1px solid var(--border); border-radius:4px; font-size:0.78rem; background:var(--white); }
+
+        /* ── Product Grid ── */
+        .product-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0.75rem; }
+        .product-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:box-shadow 0.15s; display:flex; flex-direction:column; position:relative; }
+        .product-card:hover { box-shadow:var(--shadow-md); }
+        .product-card.pinned { border-color:var(--purple); border-width:2px; }
+
+        .card-img { height:140px; background:var(--bg); display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:2rem; position:relative; border-bottom:1px solid var(--border-light); }
+        .card-img .camera-icon { opacity:0.25; }
+        .card-badges { position:absolute; top:0.35rem; left:0.35rem; display:flex; gap:0.2rem; flex-wrap:wrap; z-index:1; }
+        .badge { font-size:0.58rem; font-weight:600; padding:0.1rem 0.35rem; border-radius:3px; }
+        .badge.recommended { background:#ea580c; color:#fff; }
+        .badge.sale { background:#dc2626; color:#fff; }
+        .badge.eol { background:#f3f4f6; color:#6b7280; }
+        .badge.pinned { background:var(--purple-bg); color:var(--purple); }
+        .badge.new { background:var(--green-bg); color:var(--green); }
+
+        .card-body { padding:0.65rem; flex:1; display:flex; flex-direction:column; }
+        .card-brand { font-size:0.68rem; color:var(--accent); font-weight:600; margin-bottom:0.1rem; }
+        .card-title { font-size:0.82rem; font-weight:600; line-height:1.3; margin-bottom:0.15rem; }
+        .card-model { font-size:0.65rem; color:var(--text-dim); font-family:monospace; margin-bottom:0.25rem; }
+        .card-cats { font-size:0.62rem; color:var(--text-muted); margin-bottom:0.25rem; }
+
+        /* Boost breakdown */
+        .card-boost { display:flex; flex-wrap:wrap; gap:0.15rem; margin-bottom:0.4rem; }
+        .boost-chip { font-size:0.55rem; padding:0.05rem 0.3rem; border-radius:3px; font-weight:500; font-family:monospace; }
+        .boost-chip.pos { background:var(--green-bg); color:var(--green); }
+        .boost-chip.neg { background:var(--red-bg); color:var(--red); }
+        .boost-total { font-size:0.6rem; font-weight:700; color:var(--text); background:var(--bg); padding:0.05rem 0.35rem; border-radius:3px; }
+
+        .card-usps { margin-bottom:0.4rem; }
+        .card-usps span { display:inline-block; font-size:0.6rem; background:var(--bg); padding:0.05rem 0.3rem; border-radius:3px; margin:0.05rem 0.05rem 0 0; color:var(--text-muted); }
+
+        .card-footer { margin-top:auto; display:flex; justify-content:space-between; align-items:flex-end; padding-top:0.4rem; border-top:1px solid var(--border-light); }
+        .card-price { font-weight:700; font-size:0.95rem; }
+        .card-price.on-sale { color:var(--red); }
+        .card-price .original { display:block; font-size:0.65rem; color:var(--text-dim); text-decoration:line-through; font-weight:400; }
+        .card-stock { font-size:0.62rem; }
+        .card-stock.inStock { color:var(--green); }
+        .card-stock.limited { color:var(--orange); }
+
+        mark { background:#fef08a; padding:0 1px; border-radius:2px; }
+
+        /* ── Pagination ── */
+        .pagination { display:flex; justify-content:center; gap:0.25rem; margin-top:1.5rem; padding:1rem 0; }
+        .pagination button { padding:0.35rem 0.65rem; border:1px solid var(--border); background:var(--white); border-radius:4px; font-size:0.78rem; cursor:pointer; }
+        .pagination button:hover { border-color:var(--accent); color:var(--accent); }
+        .pagination button.active { background:var(--accent); color:var(--white); border-color:var(--accent); }
+        .pagination button:disabled { opacity:0.35; cursor:default; }
+
+        .empty-state { text-align:center; padding:3rem 2rem; color:var(--text-muted); }
+        .empty-state .big { font-size:2.5rem; margin-bottom:0.5rem; }
+
+        /* ── Admin Panel (slide-out right) ── */
+        .admin-toggle, .options-toggle { padding:0.4rem 0.7rem; border-radius:var(--radius); font-size:0.75rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+        .admin-toggle { border:1px solid var(--purple); background:var(--purple-bg); color:var(--purple); }
+        .admin-toggle:hover, .admin-toggle.active { background:var(--purple); color:var(--white); }
+        .options-toggle { border:1px solid var(--accent); background:var(--accent-light); color:var(--accent); }
+        .options-toggle:hover, .options-toggle.active { background:var(--accent); color:var(--white); }
+
+        .admin-overlay, .options-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.3); z-index:150; }
+        .admin-overlay.open, .options-overlay.open { display:block; }
+
+        .admin-panel, .options-panel { position:fixed; top:0; right:-420px; width:420px; height:100vh; background:var(--white); z-index:200; box-shadow:-4px 0 20px rgba(0,0,0,0.15); transition:right 0.25s ease; display:flex; flex-direction:column; }
+        .admin-panel.open, .options-panel.open { right:0; }
+        .options-panel { width:320px; right:-320px; }
+
+        .admin-header { padding:0.75rem 1.25rem; border-bottom:none; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .admin-header h2 { font-size:1rem; color:var(--purple); }
+        .admin-close { background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-muted); padding:0.25rem; }
+        .admin-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+        .admin-tab { flex:1; padding:0.5rem; border:none; background:none; font-size:0.75rem; font-weight:600; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; }
+        .admin-tab:hover { color:var(--purple); }
+        .admin-tab.active { color:var(--purple); border-bottom-color:var(--purple); }
+
+        .admin-body { flex:1; overflow-y:auto; padding:1rem 1.25rem; }
+
+        .admin-section { margin-bottom:1.25rem; }
+        .admin-section-title { font-size:0.68rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-dim); margin-bottom:0.5rem; padding-bottom:0.25rem; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center; }
+        .admin-section-title .es-label { font-size:0.6rem; color:var(--red); font-weight:400; text-transform:none; letter-spacing:0; }
+
+        .weight-row { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.4rem; }
+        .weight-row .wlabel { font-size:0.75rem; color:var(--text); min-width:110px; flex-shrink:0; }
+        .weight-row .wlabel .es-factor { font-size:0.6rem; color:var(--text-dim); display:block; }
+        .weight-row input[type="range"] { flex:1; accent-color:var(--purple); height:16px; }
+        .weight-row .wval { font-size:0.75rem; font-weight:700; font-family:monospace; min-width:2rem; text-align:right; color:var(--purple); }
+
+        .admin-footer { padding:0.75rem 1.25rem; border-top:1px solid var(--border); flex-shrink:0; display:flex; flex-direction:column; gap:0.5rem; }
+        .admin-apply { padding:0.6rem 1rem; border:none; border-radius:var(--radius); background:var(--purple); color:var(--white); font-weight:600; font-size:0.85rem; cursor:pointer; }
+        .admin-apply:hover { opacity:0.9; }
+        .admin-apply:disabled { opacity:0.5; cursor:wait; }
+        .admin-status { font-size:0.7rem; color:var(--text-muted); text-align:center; min-height:1.2em; }
+        .admin-reset { padding:0.4rem 0.75rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--white); font-size:0.75rem; cursor:pointer; color:var(--text-muted); }
+
+        @media (max-width:768px) {
+            .layout { grid-template-columns:1fr; }
+            .sidebar { display:none; }
+            .admin-panel { width:100%; right:-100%; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="logo">Netcam<span>center</span></div>
+    <div class="search-wrap">
+        <span class="icon">&#128269;</span>
+        <input type="text" id="q" placeholder="Zoek camera's, NVR's, accessoires..." autocomplete="off" autofocus>
+        <div class="ac-dropdown" id="acDropdown"></div>
+    </div>
+    <label class="eol-switch" title="Toon ook end-of-life producten">
+        <input type="checkbox" id="fEol" onchange="search()">
+        <span class="eol-slider"></span>
+        <span class="eol-label">EOL</span>
+    </label>
+    <div class="header-controls">
+        <select id="groupSelect" onchange="switchGroup(this.value)" class="hdr-select" title="Klantengroep">
+            <option value="enduser" selected>Eindgebruiker</option>
+            <option value="reseller">Reseller (-20%)</option>
+            <option value="installer">Installateur (-30%)</option>
+        </select>
+        <select id="currSelect" onchange="switchCurrency(this.value)" class="hdr-select" title="Valuta">
+            <option value="eur" selected>EUR</option>
+            <option value="usd">USD</option>
+        </select>
+        <select id="langSelect" onchange="switchLang(this.value)" class="hdr-select" title="Taal">
+            <option value="nl" selected>NL</option>
+            <option value="en">EN</option>
+            <option value="de">DE</option>
+        </select>
+    </div>
+    <button class="admin-toggle" id="adminToggle" onclick="toggleAdmin()">Ranking Tuner</button>
+    <button class="options-toggle" id="optionsToggle" onclick="toggleOptions()">Opties</button>
+    <div class="header-meta" id="headerMeta"></div>
+</div>
+
+<!-- Admin Panel -->
+<div class="admin-overlay" id="adminOverlay" onclick="toggleAdmin()"></div>
+<div class="admin-panel" id="adminPanel">
+    <div class="admin-header">
+        <h2>Ranking Tuner</h2>
+        <button class="admin-close" onclick="toggleAdmin()">&times;</button>
+    </div>
+    <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchTab('boost', this)">Boost Score (22)</button>
+        <button class="admin-tab" onclick="switchTab('fields', this)">Zoekvelden &amp; Typo's</button>
+    </div>
+    <div class="admin-body" id="adminBodyBoost">
+        <!-- Filled by JS: boost sliders -->
+    </div>
+    <div class="admin-body" id="adminBodyFields" style="display:none;">
+        <!-- Filled by JS: field weights + num_typos -->
+    </div>
+    <div class="admin-footer" id="adminFooterBoost">
+        <button class="admin-apply" id="adminApply" onclick="applyWeights()">Herbereken &amp; herindexeer boost_score</button>
+        <button class="admin-reset" onclick="resetWeights()">Reset naar standaard</button>
+        <div class="admin-status" id="adminStatus"></div>
+    </div>
+    <div class="admin-footer" id="adminFooterFields" style="display:none;">
+        <button class="admin-apply" onclick="applyFieldWeights()">Toepassen (direct, geen re-index)</button>
+        <button class="admin-reset" onclick="resetFieldWeights()">Reset naar standaard</button>
+        <div class="admin-status" id="fieldStatus"></div>
+    </div>
+</div>
+
+<!-- Options Panel -->
+<div class="options-overlay" id="optionsOverlay" onclick="toggleOptions()"></div>
+<div class="options-panel" id="optionsPanel">
+    <div class="admin-header">
+        <h2 style="color:var(--accent);">Opties</h2>
+        <button class="admin-close" onclick="toggleOptions()">&times;</button>
+    </div>
+    <div style="padding:1rem 1.25rem; display:flex; flex-direction:column; gap:0.75rem;">
+        <label style="font-size:0.82rem; display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+            <input type="checkbox" id="fBoost" onchange="search()" checked style="accent-color:var(--accent); width:16px; height:16px;"> Toon boost breakdown
+        </label>
+        <label style="font-size:0.82rem; display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+            <input type="checkbox" id="fSale" onchange="search()" style="accent-color:var(--accent); width:16px; height:16px;"> Alleen sale producten
+        </label>
+        <label style="font-size:0.82rem; display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+            <input type="checkbox" id="fRec" onchange="search()" style="accent-color:var(--accent); width:16px; height:16px;"> Alleen aanbevolen producten
+        </label>
+    </div>
+</div>
+
+<div class="typo-banner" id="typoBanner"></div>
+<div class="pinned-banner" id="pinnedBanner"></div>
+
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="active-filters" id="activeFilters"></div>
+        <div class="filter-section">
+            <div class="filter-title" onclick="toggleSection(this)">Categorie <span class="toggle">&#9660;</span></div>
+            <ul class="filter-list" id="facet-categories"></ul>
+        </div>
+        <div class="filter-section">
+            <div class="filter-title" onclick="toggleSection(this)">Merk <span class="toggle">&#9660;</span></div>
+            <ul class="filter-list" id="facet-brand_name"></ul>
+        </div>
+        <div class="filter-section">
+            <div class="filter-title" onclick="toggleSection(this)">Eigenschappen <span class="toggle">&#9660;</span></div>
+            <ul class="filter-list" id="facet-properties"></ul>
+        </div>
+        <div class="filter-section">
+            <div class="filter-title">Prijs</div>
+            <div class="price-inputs">
+                <input type="number" id="priceMin" placeholder="Min" min="0" step="10">
+                <span class="sep">&ndash;</span>
+                <input type="number" id="priceMax" placeholder="Max" min="0" step="10">
+            </div>
+        </div>
+        <div class="filter-section">
+            <div class="filter-title" onclick="toggleSection(this)">Beschikbaarheid <span class="toggle">&#9660;</span></div>
+            <ul class="filter-list" id="facet-stock"></ul>
+        </div>
+        <!-- Options moved to Ranking Tuner panel -->
+    </aside>
+
+    <main class="main">
+        <div class="sort-bar">
+            <div>
+                <span class="result-info" id="resultInfo"></span>
+                <span class="search-time" id="searchTime"></span>
+            </div>
+            <div class="sort-controls">
+                <label>Sorteren:</label>
+                <select id="sortBy" onchange="search()">
+                    <option value="boost_score:desc,sale_count:desc" selected>Aanbevolen</option>
+                    <option value="default_price:asc">Prijs laag &rarr; hoog</option>
+                    <option value="default_price:desc">Prijs hoog &rarr; laag</option>
+                    <option value="sale_count:desc">Populairste</option>
+                </select>
+                <label>Per pagina:</label>
+                <select id="perPage" onchange="search()">
+                    <option value="12" selected>12</option>
+                    <option value="24">24</option>
+                    <option value="48">48</option>
+                </select>
+            </div>
+        </div>
+        <div class="product-grid" id="results">
+            <div class="empty-state"><div class="big">&#128269;</div><p>Producten laden...</p></div>
+        </div>
+        <div class="pagination" id="pagination"></div>
+    </main>
+</div>
+
+<script src="config.js"></script>
+<script>
+// =========================================================================
+// Config & Labels
+// =========================================================================
+const TS = { host: TS_CONFIG.host, key: TS_CONFIG.key };
+let LANG = 'nl';
+let CURRENCY = 'eur';
+let GROUP = 'enduser';
+function getColl() { return `products_${LANG}`; }
+
+const CAT_LABELS = {
+    8:"IP Camera's", 1710:"Dome Camera's", 1702:"Bullet Camera's", 1709:"PTZ Camera's",
+    1704:"Fisheye Camera's", 1705:"Box Camera's", 1706:"Thermal Camera's", 1703:"Mini Camera's",
+    1713:"Panoramische Camera's", 2811:"NVR's", 2803:"PoE Switches",
+    2810:"Opslag & Accessoires", 2820:"Software & Licenties", 2824:"Beugels & Behuizingen",
+};
+const PROP_LABELS = { 2853283:'PoE', 2853284:'4K', 2853285:'AI Analytics', 2853286:'Vandaalbestendig', 2853287:'Starlight' };
+const STOCK_LABELS = { inStock:'Op voorraad', limited:'Beperkt', discontinued:'Niet leverbaar', preOrder:'Pre-order' };
+const CAMERA_SUBS = [1710,1702,1709,1704,1705,1706,1703,1713];
+const TOP_CATS = [8,2811,2803,2824];
+
+// Boost weights (must match mock.php)
+const BOOST_WEIGHTS = { recommended: 4, sale: 2, eol: -5 };
+const CAT_BOOSTS = {8:3,1710:4,1702:3,1709:4,1703:3,1704:5,1705:3,1706:3,2811:3,2803:3,2810:3,2820:3,1713:2,2824:3};
+const PROP_BOOSTS = {2853283:1,2853284:1,2853285:1,2853286:1,2853287:1};
+
+// =========================================================================
+// State
+// =========================================================================
+let S = {
+    q: '', page: 1, perPage: 12,
+    filters: { categories:[], brand_name:[], properties:[], stock:[] },
+    priceMin: null, priceMax: null,
+};
+
+// =========================================================================
+// Typesense API helpers
+// =========================================================================
+let abortCtrl = null;
+
+async function tsSearch(params, { signal } = {}) {
+    const url = `${TS.host}/collections/${getColl()}/documents/search?${new URLSearchParams(params)}`;
+    const resp = await fetch(url, { headers: { 'X-TYPESENSE-API-KEY': TS.key }, signal: signal || undefined });
+    return resp.json();
+}
+
+// =========================================================================
+// Main Search
+// =========================================================================
+async function search() {
+    S.perPage = +document.getElementById('perPage').value;
+    const sortVal = document.getElementById('sortBy').value;
+    const hasQuery = S.q.length > 0;
+
+    // Build sort_by: prepend text_match bucketing when there's a query
+    const sortBy = hasQuery
+        ? `_text_match(buckets:10):desc,${sortVal}`
+        : sortVal;
+
+    // Build filter_by
+    const f = [];
+    if (!document.getElementById('fEol').checked) f.push('eol:=false');
+    f.push('hide_in_listings:=false');
+    if (document.getElementById('fSale').checked) f.push('sale:=true');
+    if (document.getElementById('fRec').checked) f.push('recommended:=true');
+    if (S.filters.categories.length) f.push(`categories:=[${S.filters.categories.join(',')}]`);
+    if (S.filters.brand_name.length) f.push(`brand_name:=[${S.filters.brand_name.map(b=>'`'+b+'`').join(',')}]`);
+    if (S.filters.properties.length) f.push(`properties:=[${S.filters.properties.join(',')}]`);
+    if (S.filters.stock.length) f.push(`stock:=[${S.filters.stock.map(s=>'`'+s+'`').join(',')}]`);
+    // Price filter — match the field the user is actually seeing
+    // EUR: use group-specific price fields (stored)
+    // USD: filter on price_usd, but adjust for group discount since we only store enduser USD
+    if (S.priceMin !== null || S.priceMax !== null) {
+        let priceField, filterMin = S.priceMin, filterMax = S.priceMax;
+        if (CURRENCY === 'usd') {
+            priceField = 'price_usd';
+            // User sees USD * discount ratio, but price_usd stores enduser USD
+            // Reverse the discount to filter correctly
+            const ratio = GROUP === 'installer' ? 0.70 : GROUP === 'reseller' ? 0.80 : 1;
+            if (filterMin !== null) filterMin = Math.round(filterMin / ratio * 100) / 100;
+            if (filterMax !== null) filterMax = Math.round(filterMax / ratio * 100) / 100;
+        } else {
+            priceField = GROUP === 'installer' ? 'price_group_installer'
+                : GROUP === 'reseller' ? 'price_group_reseller' : 'default_price';
+        }
+        if (filterMin !== null) f.push(`${priceField}:>=${filterMin}`);
+        if (filterMax !== null) f.push(`${priceField}:<=${filterMax}`);
+    }
+
+    if (abortCtrl) abortCtrl.abort();
+    abortCtrl = new AbortController();
+
+    const start = performance.now();
+    try {
+        const data = await tsSearch({
+            q: S.q || '*',
+            query_by: FW.fields.map(f => f.key).join(','),
+            query_by_weights: FW.fields.map(f => f.weight).join(','),
+            sort_by: sortBy,
+            filter_by: f.join(' && '),
+            facet_by: 'categories,brand_name(sort_by:_alpha:asc),properties,stock',
+            max_facet_values: '30',
+            per_page: S.perPage,
+            page: S.page,
+            highlight_start_tag: '<mark>',
+            highlight_end_tag: '</mark>',
+            highlight_fields: 'title,model,brand_name',
+            num_typos: FW.fields.map(f => f.typos).join(','),
+        }, { signal: abortCtrl.signal });
+        const ms = performance.now() - start;
+
+        renderFacets(data.facet_counts || []);
+        renderActiveFilters();
+        renderTypoCorrection(data);
+
+        // Zero results → show recommended fallback
+        if ((data.found || 0) === 0 && S.q) {
+            const fallback = await tsSearch({
+                q: '*',
+                query_by: 'title',
+                sort_by: 'boost_score:desc,sale_count:desc',
+                filter_by: 'eol:=false && hide_in_listings:=false && recommended:=true',
+                per_page: '6',
+            });
+            renderResults(fallback, true);
+            renderPagination(0);
+            document.getElementById('resultInfo').innerHTML = `<strong>0</strong> resultaten voor "${S.q}"`;
+            document.getElementById('searchTime').textContent = `${data.search_time_ms ?? '?'}ms`;
+            document.getElementById('headerMeta').innerHTML = `0 resultaten`;
+        } else {
+            renderResults(data, false);
+            renderPagination(data.found || 0);
+            document.getElementById('resultInfo').innerHTML = `<strong>${data.found}</strong> producten`;
+            document.getElementById('searchTime').textContent = `${data.search_time_ms ?? '?'}ms server · ${Math.round(ms)}ms totaal`;
+            document.getElementById('headerMeta').innerHTML = `<strong>${data.found}</strong> resultaten`;
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        document.getElementById('results').innerHTML = `<div class="empty-state"><p>Fout: ${err.message}</p></div>`;
+    }
+}
+
+// =========================================================================
+// Typo Correction Detection
+// =========================================================================
+function renderTypoCorrection(data) {
+    const el = document.getElementById('typoBanner');
+    if (!S.q || !data.hits?.length) { el.innerHTML = ''; return; }
+
+    // Check if any tokens were dropped or corrected
+    const info = data.hits[0]?.text_match_info;
+    if (info && info.tokens_matched < S.q.trim().split(/\s+/).length && info.num_tokens_dropped > 0) {
+        const dropped = info.num_tokens_dropped;
+        el.innerHTML = `Sommige zoektermen zijn weggelaten voor betere resultaten (${dropped} ${dropped === 1 ? 'woord' : 'woorden'} overgeslagen).`;
+        return;
+    }
+
+    // Check for typo corrections via highlight differences
+    const firstHit = data.hits[0];
+    if (firstHit?.highlight?.title?.matched_tokens) {
+        const matched = firstHit.highlight.title.matched_tokens;
+        const queryTokens = S.q.toLowerCase().split(/\s+/);
+        const corrections = [];
+        for (let i = 0; i < queryTokens.length; i++) {
+            const qt = queryTokens[i];
+            const mt = matched[i];
+            if (mt && qt !== mt.toLowerCase() && mt.toLowerCase().includes(qt.slice(0, 2))) {
+                corrections.push({ from: qt, to: mt });
+            }
+        }
+        if (corrections.length > 0) {
+            el.innerHTML = `Resultaten voor "${corrections.map(c => `<strong>${c.to}</strong>`).join(' ')}" (autocorrectie van "${S.q}")`;
+            return;
+        }
+    }
+    el.innerHTML = '';
+}
+
+// =========================================================================
+// Autocomplete
+// =========================================================================
+let acTimer = null;
+const qEl = document.getElementById('q');
+const acEl = document.getElementById('acDropdown');
+
+qEl.addEventListener('input', () => {
+    clearTimeout(acTimer);
+    S.q = qEl.value.trim();
+    S.page = 1;
+    if (S.q.length < 2) { acEl.classList.remove('open'); return; }
+    acTimer = setTimeout(async () => {
+        try {
+            const data = await tsSearch({
+                q: S.q,
+                query_by: 'title,model,brand_name',
+                query_by_weights: '3,2,3',
+                sort_by: '_text_match:desc,boost_score:desc',
+                per_page: '6',
+                filter_by: 'eol:=false && hide_in_listings:=false',
+                highlight_start_tag: '<mark>',
+                highlight_end_tag: '</mark>',
+                highlight_fields: 'title,brand_name',
+            });
+            renderAutocomplete(data);
+        } catch (e) {
+            if (e.name !== 'AbortError') acEl.classList.remove('open');
+        }
+    }, 120);
+});
+
+qEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { acEl.classList.remove('open'); search(); }
+    if (e.key === 'Escape') acEl.classList.remove('open');
+});
+
+qEl.addEventListener('blur', () => setTimeout(() => acEl.classList.remove('open'), 200));
+
+function renderAutocomplete(data) {
+    if (!data.hits?.length) { acEl.classList.remove('open'); return; }
+
+    let html = '<div class="ac-section-title">Producten</div>';
+    html += data.hits.map(h => {
+        const d = h.document;
+        const title = h.highlight?.title?.snippet || d.title;
+        const brand = h.highlight?.brand_name?.snippet || d.brand_name;
+        return `<div class="ac-item" onmousedown="acSelect('${d.title.replace(/'/g,"\\'")}')">
+            <div>
+                <div class="ac-title">${title}</div>
+                <div class="ac-brand">${brand} &middot; ${d.model}</div>
+            </div>
+            <div class="ac-price">${(() => { const p = getPrice(d); return p.symbol + p.price.toFixed(2); })()}</div>
+        </div>`;
+    }).join('');
+
+    // Add "show all results" option
+    html += `<div class="ac-item" onmousedown="acSubmit()" style="border-top:1px solid var(--border-light); color:var(--accent); font-weight:600;">
+        Alle resultaten voor "${S.q}" &rarr;
+    </div>`;
+
+    acEl.innerHTML = html;
+    acEl.classList.add('open');
+}
+
+function acSelect(title) {
+    qEl.value = title;
+    S.q = title;
+    S.page = 1;
+    acEl.classList.remove('open');
+    search();
+}
+
+function acSubmit() {
+    acEl.classList.remove('open');
+    search();
+}
+
+// =========================================================================
+// Facets
+// =========================================================================
+function renderFacets(facets) {
+    for (const facet of facets) {
+        const el = document.getElementById(`facet-${facet.field_name}`);
+        if (!el) continue;
+        const counts = facet.counts || [];
+
+        if (facet.field_name === 'categories') {
+            const top = counts.filter(c => TOP_CATS.includes(+c.value)).sort((a,b) => b.count - a.count);
+            const subs = counts.filter(c => CAMERA_SUBS.includes(+c.value)).sort((a,b) => b.count - a.count);
+            el.innerHTML = [...top, ...subs].map(c => {
+                const id = +c.value;
+                const checked = S.filters.categories.includes(id);
+                const indent = CAMERA_SUBS.includes(id) ? ' indent' : '';
+                return `<li class="filter-item${c.count===0?' zero':''}${indent}">
+                    <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('categories',${id})">
+                    <span>${CAT_LABELS[id]||id}</span><span class="count">${c.count}</span>
+                </li>`;
+            }).join('');
+        } else if (facet.field_name === 'brand_name') {
+            el.innerHTML = counts.map(c => {
+                const checked = S.filters.brand_name.includes(c.value);
+                return `<li class="filter-item${c.count===0?' zero':''}">
+                    <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('brand_name','${c.value.replace(/'/g,"\\'")}')">
+                    <span>${c.value}</span><span class="count">${c.count}</span>
+                </li>`;
+            }).join('');
+        } else if (facet.field_name === 'properties') {
+            el.innerHTML = counts.map(c => {
+                const id = +c.value;
+                const checked = S.filters.properties.includes(id);
+                return `<li class="filter-item${c.count===0?' zero':''}">
+                    <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('properties',${id})">
+                    <span>${PROP_LABELS[id]||id}</span><span class="count">${c.count}</span>
+                </li>`;
+            }).join('');
+        } else if (facet.field_name === 'stock') {
+            el.innerHTML = counts.map(c => {
+                const checked = S.filters.stock.includes(c.value);
+                return `<li class="filter-item${c.count===0?' zero':''}">
+                    <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('stock','${c.value}')">
+                    <span>${STOCK_LABELS[c.value]||c.value}</span><span class="count">${c.count}</span>
+                </li>`;
+            }).join('');
+        }
+    }
+}
+
+function toggleFilter(field, val) {
+    const arr = S.filters[field];
+    const i = arr.indexOf(val);
+    if (i === -1) arr.push(val); else arr.splice(i, 1);
+    S.page = 1;
+    search();
+}
+
+function removeFilter(field, val) {
+    const arr = S.filters[field];
+    const i = arr.indexOf(val);
+    if (i !== -1) arr.splice(i, 1);
+    S.page = 1;
+    search();
+}
+
+function clearAll() {
+    S.filters = { categories:[], brand_name:[], properties:[], stock:[] };
+    S.priceMin = S.priceMax = null;
+    document.getElementById('fSale').checked = false;
+    document.getElementById('fRec').checked = false;
+    document.getElementById('priceMin').value = '';
+    document.getElementById('priceMax').value = '';
+    S.page = 1;
+    search();
+}
+
+function renderActiveFilters() {
+    const el = document.getElementById('activeFilters');
+    const tags = [];
+    for (const id of S.filters.categories) tags.push(`<span class="active-tag" onclick="removeFilter('categories',${id})">${CAT_LABELS[id]||id} &times;</span>`);
+    for (const b of S.filters.brand_name) tags.push(`<span class="active-tag" onclick="removeFilter('brand_name','${b.replace(/'/g,"\\'")}')">${b} &times;</span>`);
+    for (const id of S.filters.properties) tags.push(`<span class="active-tag" onclick="removeFilter('properties',${id})">${PROP_LABELS[id]||id} &times;</span>`);
+    for (const s of S.filters.stock) tags.push(`<span class="active-tag" onclick="removeFilter('stock','${s}')">${STOCK_LABELS[s]||s} &times;</span>`);
+    if (tags.length) tags.push(`<span class="clear-all" onclick="clearAll()">Wis alles</span>`);
+    el.innerHTML = tags.join('');
+}
+
+// Price inputs
+document.getElementById('priceMin').addEventListener('change', e => { S.priceMin = e.target.value ? +e.target.value : null; S.page=1; search(); });
+document.getElementById('priceMax').addEventListener('change', e => { S.priceMax = e.target.value ? +e.target.value : null; S.page=1; search(); });
+
+// =========================================================================
+// Boost Breakdown
+// =========================================================================
+function boostBreakdown(doc) {
+    const parts = [];
+    if (doc.recommended) parts.push({ label: 'Aanbevolen', w: BOOST_WEIGHTS.recommended });
+    if (doc.sale) parts.push({ label: 'Sale', w: BOOST_WEIGHTS.sale });
+    if (doc.eol) parts.push({ label: 'EOL', w: BOOST_WEIGHTS.eol });
+    for (const cid of (doc.categories||[])) {
+        if (CAT_BOOSTS[cid]) parts.push({ label: CAT_LABELS[cid]||cid, w: CAT_BOOSTS[cid] });
+    }
+    for (const pid of (doc.properties||[])) {
+        if (PROP_BOOSTS[pid]) parts.push({ label: PROP_LABELS[pid]||pid, w: PROP_BOOSTS[pid] });
+    }
+    // Sort: highest weight first, negatives last
+    parts.sort((a, b) => b.w - a.w);
+    return parts;
+}
+
+// =========================================================================
+// Results Rendering
+// =========================================================================
+function getPrice(doc) {
+    // Use stored group prices (pre-computed at index time)
+    const groupField = GROUP === 'installer' ? 'price_group_installer'
+        : GROUP === 'reseller' ? 'price_group_reseller'
+        : 'default_price';
+    let price = doc[groupField] ?? doc.default_price;
+    let origPrice = doc.original_price ?? 0;
+
+    // Apply group discount to original price too
+    const discountRatio = GROUP === 'installer' ? 0.70 : GROUP === 'reseller' ? 0.80 : 1;
+    origPrice = origPrice * discountRatio;
+
+    // Currency
+    let symbol = '\u20ac';
+    if (CURRENCY === 'usd') {
+        const rate = (doc.price_usd ?? doc.default_price * 1.08) / doc.default_price;
+        price = price * rate;
+        origPrice = origPrice * rate;
+        symbol = '$';
+    }
+    return { price, origPrice, symbol };
+}
+
+function renderResults(data, isFallback = false) {
+    const el = document.getElementById('results');
+    const hits = data.hits || [];
+    const showBoost = document.getElementById('fBoost')?.checked;
+
+    if (!hits.length && !isFallback) {
+        el.innerHTML = `<div class="empty-state"><div class="big">&#128528;</div><p>Geen producten gevonden. Pas de filters aan of probeer een andere zoekterm.</p></div>`;
+        return;
+    }
+
+    // Banners
+    if (isFallback) {
+        document.getElementById('pinnedBanner').textContent = 'Geen resultaten gevonden. Bekijk deze aanbevolen producten:';
+    } else if (data.override_metadata) {
+        document.getElementById('pinnedBanner').textContent = 'Gepromote resultaten worden getoond voor deze zoekopdracht.';
+    } else {
+        document.getElementById('pinnedBanner').textContent = '';
+    }
+
+    let cardsHtml = hits.map(hit => {
+        const d = hit.document;
+        const hl = hit.highlight || {};
+        const title = hl.title?.snippet || d.title;
+        const brand = hl.brand_name?.snippet || d.brand_name;
+        const model = hl.model?.snippet || d.model;
+        const catNames = (d.categories||[]).filter(id => CAT_LABELS[id]).map(id => CAT_LABELS[id]);
+        const usps = (d.usps||[]).slice(0, 4);
+        const isPinned = hit.curated; // Typesense sets this for curated results
+
+        // Badges — always separate tags
+        let badges = '';
+        if (isPinned) badges += '<span class="badge pinned">Gepromoot</span>';
+        if (d.recommended) badges += '<span class="badge recommended">Aanbevolen</span>';
+        if (d.sale) badges += '<span class="badge sale">Sale</span>';
+        if (d.eol) badges += '<span class="badge eol">EOL</span>';
+        if (d.coming_soon) badges += '<span class="badge new">Nieuw</span>';
+
+        // Boost breakdown
+        let boostHtml = '';
+        if (showBoost) {
+            const parts = boostBreakdown(d);
+            if (parts.length) {
+                boostHtml = '<div class="card-boost">';
+                boostHtml += parts.map(p =>
+                    `<span class="boost-chip ${p.w > 0 ? 'pos' : 'neg'}">${p.label} ${p.w > 0 ? '+' : ''}${p.w}</span>`
+                ).join('');
+                boostHtml += `<span class="boost-total">= ${d.boost_score}</span>`;
+                boostHtml += '</div>';
+            }
+        }
+
+        const stockClass = d.stock === 'inStock' ? 'inStock' : d.stock === 'limited' ? 'limited' : '';
+        const p = getPrice(d);
+        const groupLabel = GROUP !== 'enduser' ? `<span style="font-size:0.55rem; color:var(--accent); display:block;">${GROUP === 'installer' ? 'Installateur' : 'Reseller'}</span>` : '';
+
+        return `
+        <div class="product-card${isPinned ? ' pinned' : ''}">
+            <div class="card-img"><span class="camera-icon">&#128247;</span>
+                ${badges ? `<div class="card-badges">${badges}</div>` : ''}
+            </div>
+            <div class="card-body">
+                <div class="card-brand">${brand}</div>
+                <div class="card-title">${title}</div>
+                <div class="card-model">${model}</div>
+                ${catNames.length ? `<div class="card-cats">${catNames.join(' &middot; ')}</div>` : ''}
+                ${boostHtml}
+                ${usps.length ? `<div class="card-usps">${usps.map(u=>`<span>${u}</span>`).join('')}</div>` : ''}
+                <div class="card-footer">
+                    <div class="card-price${d.sale ? ' on-sale' : ''}">
+                        ${groupLabel}
+                        ${p.symbol}${p.price.toFixed(2)}
+                        ${d.sale && p.origPrice ? `<span class="original">${p.symbol}${p.origPrice.toFixed(2)}</span>` : ''}
+                    </div>
+                    <div class="card-stock ${stockClass}">${STOCK_LABELS[d.stock]||d.stock||''}</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+
+    el.innerHTML = cardsHtml;
+}
+
+// =========================================================================
+// Pagination
+// =========================================================================
+function renderPagination(total) {
+    const el = document.getElementById('pagination');
+    const tp = Math.ceil(total / S.perPage);
+    if (tp <= 1) { el.innerHTML = ''; return; }
+    let h = `<button ${S.page<=1?'disabled':''} onclick="goPage(${S.page-1})">&laquo;</button>`;
+    const s = Math.max(1, S.page-3), e = Math.min(tp, S.page+3);
+    if (s > 1) h += `<button onclick="goPage(1)">1</button>`;
+    if (s > 2) h += '<span style="color:var(--text-dim);">&hellip;</span>';
+    for (let p = s; p <= e; p++) h += `<button class="${p===S.page?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    if (e < tp-1) h += '<span style="color:var(--text-dim);">&hellip;</span>';
+    if (e < tp) h += `<button onclick="goPage(${tp})">${tp}</button>`;
+    h += `<button ${S.page>=tp?'disabled':''} onclick="goPage(${S.page+1})">&raquo;</button>`;
+    el.innerHTML = h;
+}
+
+function goPage(p) { S.page = p; search(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+// =========================================================================
+// Utilities
+// =========================================================================
+function toggleSection(el) {
+    const list = el.nextElementSibling;
+    if (list) list.classList.toggle('collapsed');
+    const t = el.querySelector('.toggle');
+    if (t) t.textContent = list.classList.contains('collapsed') ? '\u25B6' : '\u25BC';
+}
+
+// =========================================================================
+// Admin Panel — Ranking Tuner (the 22 ES parameters as sliders)
+// =========================================================================
+
+// Editable boost weights (cloned from defaults, modified by sliders)
+const W = {
+    recommended: 4, sale: 2, eol: -5,
+    cats: {...CAT_BOOSTS},
+    props: {...PROP_BOOSTS},
+};
+const DEFAULTS = JSON.parse(JSON.stringify(W));
+
+// Editable field weights (query_by_weights + num_typos) — applied live per search
+const FW = {
+    fields: [
+        { key: 'title',      label: 'Titel',       weight: 3, typos: 2 },
+        { key: 'model',      label: 'Model',       weight: 2, typos: 0 },
+        { key: 'brand_name', label: 'Merknaam',    weight: 3, typos: 0 },
+        { key: 'ean',        label: 'EAN',         weight: 1, typos: 0 },
+        { key: 'sap_code',   label: 'SAP Code',    weight: 1, typos: 0 },
+        { key: 'usps',       label: 'USPs',        weight: 1, typos: 1 },
+        { key: 'summary',    label: 'Omschrijving',weight: 1, typos: 1 },
+    ],
+};
+const FW_DEFAULTS = JSON.parse(JSON.stringify(FW));
+
+function switchLang(lang) {
+    LANG = lang;
+    // Update placeholder text
+    const placeholders = { nl: "Zoek camera's, NVR's, accessoires...", en: "Search cameras, NVRs, accessories...", de: "Kameras, NVRs, Zubehör suchen..." };
+    document.getElementById('q').placeholder = placeholders[lang] || placeholders.nl;
+    S.page = 1;
+    search();
+}
+
+function switchCurrency(curr) {
+    CURRENCY = curr;
+    // Re-render without re-searching — just update visible prices
+    search();
+}
+
+function switchGroup(group) {
+    GROUP = group;
+    // Re-render with new group pricing
+    search();
+}
+
+function toggleAdmin() {
+    document.getElementById('adminPanel').classList.toggle('open');
+    document.getElementById('adminOverlay').classList.toggle('open');
+    document.getElementById('adminToggle').classList.toggle('active');
+}
+
+function toggleOptions() {
+    document.getElementById('optionsPanel').classList.toggle('open');
+    document.getElementById('optionsOverlay').classList.toggle('open');
+    document.getElementById('optionsToggle').classList.toggle('active');
+}
+
+function switchTab(tab, el) {
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('adminBodyBoost').style.display = tab === 'boost' ? '' : 'none';
+    document.getElementById('adminBodyFields').style.display = tab === 'fields' ? '' : 'none';
+    document.getElementById('adminFooterBoost').style.display = tab === 'boost' ? '' : 'none';
+    document.getElementById('adminFooterFields').style.display = tab === 'fields' ? '' : 'none';
+}
+
+function buildAdminPanel() {
+    // --- Tab 1: Boost sliders ---
+    const body = document.getElementById('adminBodyBoost');
+    let html = '';
+
+    // Promotion & Status (3 params)
+    html += `<div class="admin-section">
+        <div class="admin-section-title">Promotie &amp; Status <span class="es-label">ES: 3 Painless scripts</span></div>
+        ${weightSlider('recommended', 'Aanbevolen', W.recommended, 0, 10, 'ES factor: 4x')}
+        ${weightSlider('sale', 'Sale', W.sale, 0, 10, 'ES factor: 2x')}
+        ${weightSlider('eol', 'EOL penalty', W.eol, -10, 0, 'ES factor: 0.2x')}
+    </div>`;
+
+    // Sale Count (1 param — informational, not adjustable via boost_score)
+    html += `<div class="admin-section">
+        <div class="admin-section-title">Populariteit <span class="es-label">ES: 1 Painless script</span></div>
+        <div style="font-size:0.72rem; color:var(--text-muted); padding:0.25rem 0;">
+            sale_count:desc als derde sort-veld (tiebreaker). Niet instelbaar als gewicht — het is een apart sorteerveld.
+            <div style="color:var(--text-dim); font-size:0.65rem; margin-top:0.2rem;">ES equivalent: <code>Math.log10(Math.min(saleCount, 100)) * 1.05</code></div>
+        </div>
+    </div>`;
+
+    // Category Boosts (14 params)
+    html += `<div class="admin-section">
+        <div class="admin-section-title">Categorie boosts <span class="es-label">ES: 14 Painless scripts</span></div>`;
+    for (const [id, label] of Object.entries(CAT_LABELS)) {
+        const w = W.cats[id] ?? 0;
+        const esF = CAT_BOOSTS[id] ?? 0;
+        html += weightSlider(`cat-${id}`, label, w, 0, 10, `ES factor: ${esF}x`);
+    }
+    html += `</div>`;
+
+    // Property Boosts (5 params)
+    html += `<div class="admin-section">
+        <div class="admin-section-title">Eigenschap boosts <span class="es-label">ES: 5 Painless scripts</span></div>`;
+    for (const [id, label] of Object.entries(PROP_LABELS)) {
+        const w = W.props[id] ?? 0;
+        html += weightSlider(`prop-${id}`, label, w, 0, 5, 'ES factor: 1.5x');
+    }
+    html += `</div>`;
+
+    // Total count
+    const total = 3 + 14 + Object.keys(PROP_LABELS).length;
+    html += `<div style="text-align:center; font-size:0.7rem; color:var(--text-dim); padding:0.5rem 0; border-top:1px solid var(--border-light);">
+        ${total} parameters &mdash; in ES: ${total} Painless scripts<br>
+        In Typesense: 1 optelsom bij indexering
+    </div>`;
+
+    body.innerHTML = html;
+
+    // --- Tab 2: Field weights ---
+    buildFieldsTab();
+}
+
+function buildFieldsTab() {
+    const body = document.getElementById('adminBodyFields');
+    let html = `
+    <div class="admin-section">
+        <div class="admin-section-title">Zoekveld gewichten <span class="es-label">query_by_weights</span></div>
+        <p style="font-size:0.7rem; color:var(--text-muted); margin-bottom:0.75rem;">
+            Hogere waarde = meer invloed op ranking bij een match. Bereik 0&ndash;127. Wijzigingen worden direct toegepast (geen re-index nodig).
+        </p>
+        <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+            <tr style="border-bottom:1px solid var(--border-light);">
+                <th style="text-align:left; padding:0.3rem 0.4rem; font-size:0.65rem; color:var(--text-dim); font-weight:600;">Veld</th>
+                <th style="text-align:center; padding:0.3rem 0.4rem; font-size:0.65rem; color:var(--text-dim); font-weight:600; width:70px;">Gewicht</th>
+                <th style="text-align:center; padding:0.3rem 0.4rem; font-size:0.65rem; color:var(--text-dim); font-weight:600; width:70px;">Typo's</th>
+            </tr>`;
+    FW.fields.forEach((f, i) => {
+        html += `
+            <tr style="border-bottom:1px solid var(--border-light);">
+                <td style="padding:0.4rem;">
+                    <div style="font-weight:600;">${f.label}</div>
+                    <div style="font-size:0.62rem; color:var(--text-dim); font-family:monospace;">${f.key}</div>
+                </td>
+                <td style="text-align:center; padding:0.4rem;">
+                    <input type="number" min="0" max="127" value="${f.weight}" style="width:50px; padding:0.25rem 0.35rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem; text-align:center; font-weight:600; color:var(--purple);"
+                           onchange="FW.fields[${i}].weight = +this.value">
+                </td>
+                <td style="text-align:center; padding:0.4rem;">
+                    <input type="number" min="0" max="2" value="${f.typos}" style="width:50px; padding:0.25rem 0.35rem; border:1px solid var(--border); border-radius:4px; font-size:0.8rem; text-align:center; font-weight:600; color:${f.typos === 0 ? 'var(--green)' : 'var(--orange)'};"
+                           onchange="FW.fields[${i}].typos = +this.value; this.style.color = this.value==='0' ? 'var(--green)' : 'var(--orange)'">
+                </td>
+            </tr>`;
+    });
+    html += `</table>
+    </div>
+    <div class="admin-section">
+        <div class="admin-section-title">Uitleg</div>
+        <div style="font-size:0.72rem; color:var(--text-muted); line-height:1.5;">
+            <p style="margin-bottom:0.4rem;"><strong>Gewicht</strong> &mdash; relatieve prioriteit van het veld. Een match op een veld met gewicht 3 telt 3x zwaarder dan een veld met gewicht 1.</p>
+            <p style="margin-bottom:0.4rem;"><strong>Typo's</strong> &mdash; maximaal toegestane typfouten per woord in dit veld. <span style="color:var(--green); font-weight:600;">0</span> = exact match (voor model-/serienummers). <span style="color:var(--orange); font-weight:600;">1-2</span> = fuzzy (voor titels en beschrijvingen).</p>
+            <p>Voorbeeld: model op <span style="color:var(--green); font-weight:600;">0 typo's</span> betekent dat "DS-2CD2346G3" <em>niet</em> matcht met "DS-2CD2346G2". Titel op <span style="color:var(--orange); font-weight:600;">2 typo's</span> betekent dat "dome camra" wel "Dome Camera" vindt.</p>
+        </div>
+    </div>`;
+    body.innerHTML = html;
+}
+
+function applyFieldWeights() {
+    document.getElementById('fieldStatus').textContent = 'Toegepast! Volgende zoekopdracht gebruikt de nieuwe gewichten.';
+    search();
+    setTimeout(() => { document.getElementById('fieldStatus').textContent = ''; }, 3000);
+}
+
+function resetFieldWeights() {
+    Object.assign(FW, JSON.parse(JSON.stringify(FW_DEFAULTS)));
+    buildFieldsTab();
+    document.getElementById('fieldStatus').textContent = 'Veldgewichten gereset naar standaard.';
+    search();
+    setTimeout(() => { document.getElementById('fieldStatus').textContent = ''; }, 3000);
+}
+
+function weightSlider(key, label, value, min, max, esLabel) {
+    return `<div class="weight-row">
+        <div class="wlabel">${label}<span class="es-factor">${esLabel}</span></div>
+        <input type="range" min="${min}" max="${max}" step="0.5" value="${value}"
+               oninput="updateWeight('${key}', this.value)">
+        <span class="wval" id="wval-${key}">${value}</span>
+    </div>`;
+}
+
+function updateWeight(key, val) {
+    val = parseFloat(val);
+    document.getElementById(`wval-${key}`).textContent = val;
+
+    if (key === 'recommended') W.recommended = val;
+    else if (key === 'sale') W.sale = val;
+    else if (key === 'eol') W.eol = val;
+    else if (key.startsWith('cat-')) W.cats[key.slice(4)] = val;
+    else if (key.startsWith('prop-')) W.props[key.slice(5)] = val;
+
+    // Update the boost breakdown display weights
+    BOOST_WEIGHTS.recommended = W.recommended;
+    BOOST_WEIGHTS.sale = W.sale;
+    BOOST_WEIGHTS.eol = W.eol;
+    for (const [id, v] of Object.entries(W.cats)) CAT_BOOSTS[id] = v;
+    for (const [id, v] of Object.entries(W.props)) PROP_BOOSTS[id] = v;
+}
+
+function resetWeights() {
+    Object.assign(W, JSON.parse(JSON.stringify(DEFAULTS)));
+    BOOST_WEIGHTS.recommended = W.recommended;
+    BOOST_WEIGHTS.sale = W.sale;
+    BOOST_WEIGHTS.eol = W.eol;
+    for (const [id, v] of Object.entries(W.cats)) CAT_BOOSTS[id] = v;
+    for (const [id, v] of Object.entries(W.props)) PROP_BOOSTS[id] = v;
+    buildAdminPanel();
+    document.getElementById('adminStatus').textContent = 'Gewichten gereset naar standaard.';
+}
+
+async function applyWeights() {
+    const btn = document.getElementById('adminApply');
+    const status = document.getElementById('adminStatus');
+    btn.disabled = true;
+    status.textContent = 'Producten ophalen...';
+
+    try {
+        // 1. Export all documents
+        const exportResp = await fetch(
+            `${TS.host}/collections/${getColl()}/documents/export`,
+            { headers: { 'X-TYPESENSE-API-KEY': TS.key } }
+        );
+        const exportText = await exportResp.text();
+        const docs = exportText.trim().split('\n').map(l => JSON.parse(l));
+        status.textContent = `${docs.length} producten opgehaald. Herberekenen...`;
+
+        // 2. Recalculate boost_score for each document
+        const updates = docs.map(d => {
+            let boost = 0;
+            if (d.recommended) boost += W.recommended;
+            if (d.sale) boost += W.sale;
+            if (d.eol) boost += W.eol;
+            for (const cid of (d.categories || [])) {
+                boost += (W.cats[cid] ?? 0);
+            }
+            for (const pid of (d.properties || [])) {
+                boost += (W.props[pid] ?? 0);
+            }
+            return JSON.stringify({ id: d.id, boost_score: Math.round(boost) });
+        });
+
+        status.textContent = `Herberekend. ${docs.length} documenten updaten...`;
+
+        // 3. Push updates via import?action=update
+        const updateResp = await fetch(
+            `${TS.host}/collections/${getColl()}/documents/import?action=update`,
+            {
+                method: 'POST',
+                headers: {
+                    'X-TYPESENSE-API-KEY': TS.key,
+                    'Content-Type': 'text/plain',
+                },
+                body: updates.join('\n'),
+            }
+        );
+        const updateText = await updateResp.text();
+        const results = updateText.trim().split('\n').map(l => JSON.parse(l));
+        const ok = results.filter(r => r.success).length;
+        const fail = results.filter(r => !r.success).length;
+
+        status.textContent = `${ok} producten bijgewerkt${fail ? `, ${fail} fouten` : ''}. Zoekresultaten vernieuwen...`;
+
+        // 4. Re-run search to show new ranking
+        await search();
+        status.textContent = `Klaar! ${ok} producten herberekend met nieuwe gewichten.`;
+
+    } catch (err) {
+        status.textContent = `Fout: ${err.message}`;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// =========================================================================
+// Init
+// =========================================================================
+buildAdminPanel();
+search();
+</script>
+</body>
+</html>

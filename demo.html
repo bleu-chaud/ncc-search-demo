@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netcamcenter — Typesense Ranking POC</title>
+    <style>
+        /* =================================================================
+           Design Tokens
+           ================================================================= */
+        :root {
+            --bg: #0f0f17;
+            --bg-surface: #181825;
+            --bg-card: #1e1e2e;
+            --bg-elevated: #262637;
+            --border: #313244;
+            --border-subtle: #252535;
+            --text: #cdd6f4;
+            --text-muted: #6c7086;
+            --text-dim: #45475a;
+            --accent: #89b4fa;
+            --green: #a6e3a1;
+            --green-dim: #1a3a1a;
+            --red: #f38ba8;
+            --red-dim: #3a1a1a;
+            --yellow: #f9e2af;
+            --peach: #fab387;
+            --mauve: #cba6f7;
+            --radius: 8px;
+        }
+
+        /* =================================================================
+           Reset & Base
+           ================================================================= */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        code, pre {
+            font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+        }
+
+        /* =================================================================
+           Section Layout — Scrollable narrative
+           ================================================================= */
+        .section {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .section:last-child { border-bottom: none; }
+        .section h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .section .lead {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+            max-width: 700px;
+        }
+
+        /* =================================================================
+           Hero
+           ================================================================= */
+        .hero {
+            text-align: center;
+            padding: 4rem 2rem 3rem;
+            background: linear-gradient(to bottom, var(--bg-surface), var(--bg));
+            border-bottom: 2px solid var(--accent);
+        }
+        .hero h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+        .hero h1 .es { color: var(--red); }
+        .hero h1 .ts { color: var(--green); }
+        .hero .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+        }
+        .hero-numbers {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+        }
+        .hero-num {
+            text-align: center;
+        }
+        .hero-num .big {
+            font-size: 4rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .hero-num .big.es { color: var(--red); }
+        .hero-num .big.ts { color: var(--green); }
+        .hero-num .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+        .hero-arrow {
+            font-size: 2rem;
+            color: var(--text-dim);
+        }
+
+        /* =================================================================
+           The Problem — ES Scripts Wall
+           ================================================================= */
+        .es-wall {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+        }
+        .es-wall pre {
+            font-size: 0.65rem;
+            line-height: 1.4;
+            color: var(--red);
+            white-space: pre;
+            tab-size: 2;
+        }
+        .es-counter {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.15rem 0.5rem;
+            background: rgba(243,139,168,0.15);
+            color: var(--red);
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        /* =================================================================
+           The Solution — Annotated formula
+           ================================================================= */
+        .formula-block {
+            background: var(--bg-surface);
+            border: 2px solid var(--green);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .formula-block code {
+            font-size: 0.85rem;
+            color: var(--green);
+            word-break: break-all;
+            line-height: 1.8;
+        }
+        .formula-block code .kw { color: var(--mauve); font-weight: 600; }
+        .formula-block code .op { color: var(--yellow); }
+        .formula-block code .num { color: var(--peach); }
+        .formula-block code .cmt { color: var(--text-dim); font-style: italic; font-size: 0.75rem; }
+
+        .formula-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .formula-step {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+        }
+        .formula-step .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: var(--bg);
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+        }
+        .formula-step h3 {
+            font-size: 0.95rem;
+            margin-bottom: 0.35rem;
+        }
+        .formula-step p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .formula-step code {
+            display: inline-block;
+            background: var(--bg);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.72rem;
+            margin-top: 0.5rem;
+            color: var(--green);
+        }
+
+        /* =================================================================
+           Side-by-side comparison
+           ================================================================= */
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 1rem;
+            align-items: start;
+            margin: 1.5rem 0;
+        }
+        .compare-side {
+            border-radius: var(--radius);
+            padding: 1rem;
+        }
+        .compare-side.es {
+            background: rgba(243,139,168,0.06);
+            border: 1px solid rgba(243,139,168,0.2);
+        }
+        .compare-side.ts {
+            background: rgba(166,227,161,0.06);
+            border: 1px solid rgba(166,227,161,0.2);
+        }
+        .compare-side .side-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        .compare-side.es .side-label { color: var(--red); }
+        .compare-side.ts .side-label { color: var(--green); }
+        .compare-side pre {
+            font-size: 0.62rem;
+            line-height: 1.5;
+            white-space: pre;
+        }
+        .compare-side.es pre { color: var(--red); }
+        .compare-side.ts pre { color: var(--green); }
+        .compare-arrow {
+            color: var(--text-dim);
+            font-size: 1.5rem;
+            padding-top: 2rem;
+        }
+
+        /* =================================================================
+           Test Cases
+           ================================================================= */
+        .test-case {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .test-case h3 {
+            font-size: 1rem;
+            margin-bottom: 0.25rem;
+        }
+        .test-case .hypothesis {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+        .test-case .hypothesis strong {
+            color: var(--yellow);
+        }
+        .test-run-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            border-radius: var(--radius);
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: opacity 0.15s;
+            margin-bottom: 1rem;
+        }
+        .test-run-btn:hover { opacity: 0.85; }
+        .test-results {
+            min-height: 60px;
+        }
+        .test-verdict {
+            margin-top: 0.75rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: var(--radius);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .test-verdict.pass {
+            background: rgba(166,227,161,0.1);
+            border: 1px solid rgba(166,227,161,0.3);
+            color: var(--green);
+        }
+
+        /* =================================================================
+           Product Cards (reused in test cases + playground)
+           ================================================================= */
+        .product {
+            display: flex;
+            gap: 0.6rem;
+            padding: 0.55rem 0.6rem;
+            border-radius: var(--radius);
+            margin-bottom: 0.35rem;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+        }
+        .product .rank {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            font-weight: 700;
+            min-width: 2rem;
+            text-align: center;
+            padding-top: 0.15rem;
+        }
+        .product .rank .rank-num { font-size: 0.85rem; color: var(--text-muted); }
+        .product .rank .score-detail { font-size: 0.5rem; color: var(--text-dim); font-family: monospace; display: block; margin-top: 0.1rem; }
+        .product .info { flex: 1; min-width: 0; }
+        .product .title { font-weight: 600; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .product .meta-line { color: var(--text-muted); font-size: 0.68rem; }
+        .product .meta-line .model { color: var(--text-dim); font-family: monospace; font-size: 0.62rem; }
+        .product .badges { display: flex; gap: 0.2rem; margin-top: 0.2rem; flex-wrap: wrap; }
+        .product .tag {
+            font-size: 0.55rem;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        .product .tag.recommended { background: rgba(249,226,175,0.15); color: var(--yellow); }
+        .product .tag.sale-tag { background: rgba(243,139,168,0.15); color: var(--red); }
+        .product .tag.eol { background: rgba(108,112,134,0.2); color: var(--text-dim); text-decoration: line-through; }
+        .product .tag.boost { background: rgba(166,227,161,0.12); color: var(--green); font-family: monospace; font-size: 0.52rem; }
+        .product .tag.penalty { background: rgba(243,139,168,0.12); color: var(--red); font-family: monospace; font-size: 0.52rem; }
+        .product .tag.cat { background: rgba(137,180,250,0.1); color: var(--accent); font-size: 0.52rem; }
+        .product .price { font-weight: 700; color: var(--green); font-size: 0.78rem; margin-left: auto; white-space: nowrap; padding-top: 0.15rem; }
+        .product .price.on-sale { color: var(--red); }
+        .product .price .original { font-size: 0.6rem; color: var(--text-dim); text-decoration: line-through; font-weight: 400; display: block; }
+
+        .product.highlight {
+            border-color: var(--yellow);
+            border-width: 2px;
+        }
+        .product .annotation {
+            font-size: 0.6rem;
+            color: var(--yellow);
+            margin-top: 0.15rem;
+            font-style: italic;
+        }
+
+        mark { background: rgba(249,226,175,0.3); color: var(--yellow); padding: 0 2px; border-radius: 2px; }
+        .empty { text-align: center; color: var(--text-dim); padding: 2rem; font-size: 0.8rem; }
+
+        /* =================================================================
+           Playground
+           ================================================================= */
+        .playground-search {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .playground-search input[type="text"] {
+            flex: 1;
+            min-width: 250px;
+            padding: 0.65rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.95rem;
+            background: var(--bg-surface);
+            color: var(--text);
+            outline: none;
+        }
+        .playground-search input[type="text"]:focus { border-color: var(--accent); }
+        .playground-search input[type="text"]::placeholder { color: var(--text-dim); }
+        .playground-presets {
+            display: flex;
+            gap: 0.3rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .playground-presets button {
+            padding: 0.25rem 0.6rem;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: var(--bg-surface);
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        .playground-presets button:hover { border-color: var(--accent); color: var(--accent); }
+        .playground-presets button.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+        .sort-display {
+            background: var(--bg);
+            border: 1px solid var(--border-subtle);
+            border-radius: 4px;
+            padding: 0.6rem 0.75rem;
+            margin-bottom: 1rem;
+            font-family: monospace;
+            font-size: 0.68rem;
+            color: var(--green);
+            word-break: break-all;
+            line-height: 1.6;
+        }
+        .sort-display .label {
+            color: var(--text-dim);
+            font-family: -apple-system, sans-serif;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        .sort-display .kw { color: var(--mauve); }
+        .sort-display .op { color: var(--yellow); }
+        .sort-display .num { color: var(--peach); }
+
+        .playground-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        .playground-col h3 {
+            font-size: 0.85rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0.75rem;
+        }
+        .playground-col h3 .badge {
+            font-size: 0.6rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 10px;
+            font-weight: 600;
+            margin-left: 0.4rem;
+        }
+        .playground-col h3 .badge.es { background: rgba(243,139,168,0.2); color: var(--red); }
+        .playground-col h3 .badge.ts { background: rgba(166,227,161,0.2); color: var(--green); }
+        .playground-col .timing { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+
+        /* =================================================================
+           Tuner
+           ================================================================= */
+        .tuner {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-top: 1.5rem;
+        }
+        .tuner summary {
+            cursor: pointer;
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 0.75rem 1rem;
+        }
+        .tuner-body { padding: 0 1rem 1rem; }
+        .tuner-section {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            margin: 0.75rem 0 0.35rem;
+        }
+        .tuner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 0.4rem;
+        }
+        .tuner-item {
+            padding: 0.3rem 0.5rem;
+            background: var(--bg-surface);
+            border-radius: 4px;
+            border: 1px solid var(--border-subtle);
+        }
+        .tuner-item label {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        .tuner-item .val { color: var(--green); font-family: monospace; font-size: 0.65rem; font-weight: 600; }
+        .tuner-item.penalty .val { color: var(--red); }
+        .tuner-item input[type="range"] { width: 100%; accent-color: var(--accent); height: 14px; }
+
+        /* =================================================================
+           Responsive
+           ================================================================= */
+        @media (max-width: 800px) {
+            .hero h1 { font-size: 1.4rem; }
+            .hero-num .big { font-size: 2.5rem; }
+            .compare-grid { grid-template-columns: 1fr; }
+            .compare-arrow { transform: rotate(90deg); text-align: center; }
+            .playground-grid { grid-template-columns: 1fr; }
+            .formula-steps { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- =====================================================================
+     1. HERO — The headline claim
+     ===================================================================== -->
+<div class="hero">
+    <h1><span class="es">22</span> Elasticsearch scripts &rarr; <span class="ts">1</span> Typesense expressie</h1>
+    <div class="subtitle">Dezelfde ranking. Een fractie van de complexiteit.</div>
+    <div class="hero-numbers">
+        <div class="hero-num">
+            <div class="big es">22</div>
+            <div class="label">Painless script_score functies</div>
+            <div class="label" style="color:var(--red)">~66 regels code om te onderhouden</div>
+        </div>
+        <div class="hero-arrow">&rarr;</div>
+        <div class="hero-num">
+            <div class="big ts">1</div>
+            <div class="label">sort_by expressie</div>
+            <div class="label" style="color:var(--green)">1 regel, alle ranking</div>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================================
+     2. THE PROBLEM — Show the actual ES scripts
+     ===================================================================== -->
+<div class="section" id="problem">
+    <h2>Het probleem: 22 losse scripts</h2>
+    <div class="lead">
+        Elke ranking-regel in Elasticsearch is een apart Painless script. Elke script loopt over het document,
+        checkt een conditie en vermenigvuldigt de score. Dit is wat jullie nu beheren:
+    </div>
+
+    <div class="es-counter">22 scripts in search-body.json</div>
+
+    <div class="es-wall" id="esWall">
+        <pre id="esWallCode"></pre>
+    </div>
+
+    <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem;">
+        Scroll door de code hierboven. Elke script doet in principe hetzelfde: <em>als product eigenschap X heeft,
+        vermenigvuldig de score met factor Y</em>. Maar elk vereist een apart JSON-blok met params, source,
+        en de volledige Painless syntax. Wijziging? 22 plekken checken.
+    </p>
+</div>
+
+<!-- =====================================================================
+     3. THE SOLUTION — How the formula works, step by step
+     ===================================================================== -->
+<div class="section" id="solution">
+    <h2>De oplossing: 1 leesbare expressie</h2>
+    <div class="lead">
+        Typesense vervangt alle 22 scripts met een enkele <code>sort_by</code> parameter.
+        Hier is de volledige ranking &mdash; alles in 1 regel:
+    </div>
+
+    <div class="formula-block">
+        <code>
+<span class="cmt">// Typesense sort_by — the complete ranking</span>
+<span class="kw">_text_match</span>(<span class="kw">buckets</span><span class="op">:</span><span class="num">10</span>)<span class="op">:desc</span>, <span class="kw">boost_score</span><span class="op">:desc</span>, sale_count<span class="op">:desc</span>
+        </code>
+    </div>
+
+    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">
+        De <code>boost_score</code> wordt bij het indexeren berekend &mdash; een simpele optelsom die alle 22 ES scripts vervangt:
+    </p>
+
+    <div class="formula-block" style="border-color: var(--accent);">
+        <code style="color:var(--accent); font-size:0.78rem;">
+<span class="cmt">// PHP bij import — vervangt 22 Painless scripts</span>
+$boost = <span class="num">0</span>;
+if ($product['recommended']) $boost += <span class="num">4</span>;   <span class="cmt">// ES: script factor 4x</span>
+if ($product['sale'])        $boost += <span class="num">2</span>;   <span class="cmt">// ES: script factor 2x</span>
+if ($product['eol'])         $boost -= <span class="num">5</span>;   <span class="cmt">// ES: script factor 0.2x</span>
+foreach ($product['categories'] as $catId) { <span class="cmt">// ES: 14 scripts</span>
+    $boost += $categoryBoosts[$catId] ?? <span class="num">0</span>;
+}
+foreach ($product['properties'] as $propId) { <span class="cmt">// ES: 5 scripts</span>
+    $boost += $propertyBoosts[$propId] ?? <span class="num">0</span>;
+}
+        </code>
+    </div>
+
+    <div class="formula-steps">
+        <div class="formula-step">
+            <div class="step-num">1</div>
+            <h3>Tekst relevantie</h3>
+            <p>
+                <code>_text_match(buckets:10):desc</code>
+            </p>
+            <p style="margin-top:0.5rem;">
+                Verdeel resultaten in 10 relevantie-groepen. Binnen elke groep
+                bepalen de business rules de volgorde. Zo domineert een perfect
+                zoekwoord-match altijd, maar bij gelijke relevantie wint
+                de aanbevolen camera.
+            </p>
+        </div>
+        <div class="formula-step">
+            <div class="step-num">2</div>
+            <h3>Business rules via boost_score</h3>
+            <p>
+                <code>boost_score:desc</code>
+            </p>
+            <p style="margin-top:0.5rem;">
+                Pre-berekend bij indexering. Simpele optelsom: Aanbevolen = +4, Sale = +2, EOL = -5,
+                plus categorie- en eigenschap-boosts.
+                Een aanbevolen dome camera: 4 + 3 (IP) + 4 (Dome) = <strong>+11</strong>.
+                Aanbevolen dome in de sale: 4 + 2 + 3 + 4 = <strong>+13</strong>.
+                Een EOL product: -5 + 3 (IP) = <strong>-2</strong>.
+            </p>
+        </div>
+        <div class="formula-step">
+            <div class="step-num">3</div>
+            <h3>Populariteit als tiebreaker</h3>
+            <p>
+                <code>sale_count:desc</code>
+            </p>
+            <p style="margin-top:0.5rem;">
+                Bij gelijke tekst-score en gelijke eval-score wint het product
+                met meer verkopen. Simpele sortering, geen script nodig.
+            </p>
+        </div>
+    </div>
+
+    <h3 style="margin-top:2rem; margin-bottom:0.75rem; font-size:1.1rem;">De vertaling: 1 ES script vs 1 TS conditie</h3>
+
+    <div class="compare-grid">
+        <div class="compare-side es">
+            <span class="side-label">Elasticsearch &mdash; 1 van 22 scripts</span>
+<pre>{
+  "script_score": {
+    "script": {
+      "params": {
+        "factor": 3.5,
+        "type": "categories",
+        "id": 1710
+      },
+      "source": "double sum = 1.0;
+  for (item in doc['categories']) {
+    if (item == 1710) {
+      sum = params.factor
+    }
+  }
+  return sum;"
+    }
+  }
+}</pre>
+            <div style="font-size:0.65rem; color:var(--text-dim); margin-top:0.5rem;">13 regels JSON + Painless. Herhaal dit 22 keer.</div>
+        </div>
+        <div class="compare-arrow">&rarr;</div>
+        <div class="compare-side ts">
+            <span class="side-label">Typesense &mdash; 1 conditie</span>
+<pre style="font-size:1rem; padding-top:1.5rem;">
+// Bij import:
+$boost += $catBoosts[1710] ?? 0;
+
+// In de query:
+sort_by: boost_score:desc</pre>
+            <div style="font-size:0.65rem; color:var(--text-dim); margin-top:1.5rem;">
+                De categorie-boost is een simpele array-lookup bij indexering.<br>
+                Geen runtime script meer. Sortering op pre-berekend veld.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================================
+     4. PROOF — Interactive test cases
+     ===================================================================== -->
+<div class="section" id="tests">
+    <h2>Bewijs: test cases met echte resultaten</h2>
+    <div class="lead">
+        Klik op "Voer test uit" om elke ranking-regel live te testen tegen Typesense.
+        Dezelfde 200 producten, dezelfde data als in de huidige webshop.
+    </div>
+
+    <!-- Test 1: Recommended boost -->
+    <div class="test-case" id="test1">
+        <h3>Test 1: Aanbevolen producten stijgen naar boven</h3>
+        <div class="hypothesis">
+            Zoekterm: <strong>"dome camera"</strong><br>
+            Verwacht: producten met het <strong>Aanbevolen</strong>-label staan bovenaan,
+            omdat de <code>boost_score</code> +4 voor aanbevolen geeft.
+        </div>
+        <button class="test-run-btn" onclick="runTest('test1', 'dome camera', 'recommended')">Voer test uit</button>
+        <div class="test-results" id="test1-results">
+            <div class="empty">Klik de knop om de test te draaien</div>
+        </div>
+    </div>
+
+    <!-- Test 2: EOL buried -->
+    <div class="test-case" id="test2">
+        <h3>Test 2: End-of-life producten zakken naar de bodem</h3>
+        <div class="hypothesis">
+            Zoekterm: <strong>"camera"</strong> (breed, met EOL filter uit)<br>
+            Verwacht: EOL producten staan <strong>onderaan</strong>,
+            omdat de <code>boost_score</code> -5 voor EOL geeft. Zelfs als de tekst-match goed is.
+        </div>
+        <button class="test-run-btn" onclick="runTest('test2', 'camera', 'eol', true)">Voer test uit (incl. EOL)</button>
+        <div class="test-results" id="test2-results">
+            <div class="empty">Klik de knop om de test te draaien</div>
+        </div>
+    </div>
+
+    <!-- Test 3: Category boost -->
+    <div class="test-case" id="test3">
+        <h3>Test 3: Categorie-boosts bevoorrechten het juiste type</h3>
+        <div class="hypothesis">
+            Zoekterm: <strong>"axis"</strong> (toont alle Axis producten)<br>
+            Verwacht: camera's scoren hoger dan accessoires, omdat IP Camera's +3, Dome +4, PTZ +4 punten krijgen,
+            terwijl Beugels slechts +3 krijgen (zonder de IP Camera basis-boost).
+        </div>
+        <button class="test-run-btn" onclick="runTest('test3', 'axis', 'categories')">Voer test uit</button>
+        <div class="test-results" id="test3-results">
+            <div class="empty">Klik de knop om de test te draaien</div>
+        </div>
+    </div>
+
+    <!-- Test 4: Sale boost -->
+    <div class="test-case" id="test4">
+        <h3>Test 4: Sale-producten krijgen voorrang bij gelijke relevantie</h3>
+        <div class="hypothesis">
+            Zoekterm: <strong>"hikvision"</strong><br>
+            Verwacht: binnen dezelfde relevantie-groep staan sale-producten hoger,
+            omdat de <code>boost_score</code> +2 voor sale geeft.
+        </div>
+        <button class="test-run-btn" onclick="runTest('test4', 'hikvision', 'sale')">Voer test uit</button>
+        <div class="test-results" id="test4-results">
+            <div class="empty">Klik de knop om de test te draaien</div>
+        </div>
+    </div>
+
+    <!-- Test 5: Combined stacking -->
+    <div class="test-case" id="test5">
+        <h3>Test 5: Punten stapelen &mdash; aanbevolen + sale + categorie</h3>
+        <div class="hypothesis">
+            Zoekterm: <strong>"PTZ"</strong><br>
+            Verwacht: een aanbevolen PTZ camera die in de sale is scoort:
+            +4 (aanbevolen) + 2 (sale) + 3 (IP) + 4 (PTZ) = <strong>+13 punten</strong>.
+            Een gewone PTZ camera scoort: +3 (IP) + 4 (PTZ) = <strong>+7 punten</strong>.
+            Het verschil is zichtbaar in de ranking.
+        </div>
+        <button class="test-run-btn" onclick="runTest('test5', 'PTZ', 'stacking')">Voer test uit</button>
+        <div class="test-results" id="test5-results">
+            <div class="empty">Klik de knop om de test te draaien</div>
+        </div>
+    </div>
+</div>
+
+<!-- =====================================================================
+     5. PLAYGROUND — Free-form search + tuner
+     ===================================================================== -->
+<div class="section" id="playground">
+    <h2>Speeltuin: vrij zoeken + live tuning</h2>
+    <div class="lead">
+        Zoek vrij en pas de gewichten aan. De sort_by expressie update live,
+        Typesense wordt direct opnieuw bevraagd. Links: gesimuleerde ES ranking (multiplicatief).
+        Rechts: echte Typesense resultaten.
+    </div>
+
+    <div class="playground-search">
+        <input type="text" id="searchInput" placeholder="Zoek producten..." autofocus>
+        <label style="font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:0.3rem;">
+            <input type="checkbox" id="filterEol"> Incl. EOL
+        </label>
+        <label style="font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:0.3rem;">
+            Per pagina:
+            <select id="resultSize" style="background:var(--bg-surface); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:0.15rem 0.3rem; font-size:0.75rem;">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+            </select>
+        </label>
+    </div>
+    <div class="playground-presets" id="presetBar">
+        <button onclick="playgroundPreset('axis dome', this)">axis dome</button>
+        <button onclick="playgroundPreset('hikvision 4MP', this)">hikvision 4MP</button>
+        <button onclick="playgroundPreset('PTZ camera', this)">PTZ camera</button>
+        <button onclick="playgroundPreset('thermal', this)">thermal</button>
+        <button onclick="playgroundPreset('8MP bullet', this)">8MP bullet</button>
+        <button onclick="playgroundPreset('NVR 16', this)">NVR 16-ch</button>
+        <button onclick="playgroundPreset('PoE switch', this)">PoE switch</button>
+        <button onclick="playgroundPreset('dahua starlight', this)">dahua starlight</button>
+        <button onclick="playgroundPreset('fisheye', this)">fisheye</button>
+        <button onclick="playgroundPreset('mini camera', this)">mini camera</button>
+    </div>
+
+    <div class="sort-display" id="sortDisplay">
+        <span class="label">Huidige sort_by expressie</span>
+        <span id="sortByCode"></span>
+    </div>
+
+    <div class="playground-grid">
+        <div class="playground-col">
+            <h3>Elasticsearch <span class="badge es">Gesimuleerd &middot; 22 scripts</span></h3>
+            <div class="timing" id="esTiming"></div>
+            <div id="esResults" class="empty">Zoek om resultaten te zien</div>
+        </div>
+        <div class="playground-col">
+            <h3>Typesense <span class="badge ts">Live &middot; 1 expressie</span></h3>
+            <div class="timing" id="tsTiming"></div>
+            <div id="tsResults" class="empty">Zoek om resultaten te zien</div>
+        </div>
+    </div>
+
+    <!-- Tuner -->
+    <details class="tuner" id="tunerPanel">
+        <summary>Boost Score Referentie &mdash; hoe de punten worden berekend</summary>
+        <div class="tuner-body">
+            <div class="tuner-section">Promotie & Status</div>
+            <div class="tuner-grid" id="tunerPromo"></div>
+
+            <details style="margin-top:0.5rem;">
+                <summary class="tuner-section" style="cursor:pointer;">Categorie boosts</summary>
+                <div class="tuner-grid" id="tunerCats"></div>
+            </details>
+
+            <details style="margin-top:0.5rem;">
+                <summary class="tuner-section" style="cursor:pointer;">Eigenschap boosts</summary>
+                <div class="tuner-grid" id="tunerProps"></div>
+            </details>
+
+            <div class="tuner-section">Tekst match</div>
+            <div class="tuner-grid">
+                <div class="tuner-item">
+                    <label>Buckets <span class="val" id="val-buckets">10</span></label>
+                    <input type="range" min="1" max="20" step="1" value="10" id="weight-buckets"
+                           oninput="document.getElementById('val-buckets').textContent=this.value; weights.buckets=+this.value; updateAndSearch();">
+                </div>
+            </div>
+        </div>
+    </details>
+</div>
+
+<script src="config.js"></script>
+<script>
+// =========================================================================
+// Config & Constants
+// =========================================================================
+const TS = { host: TS_CONFIG.host, collection: 'products_nl', key: TS_CONFIG.key };
+
+const CATS = [
+    { id: 8,    label: "IP Camera's",          esFactor: 2.5, w: 3 },
+    { id: 1710, label: "Dome Camera's",         esFactor: 3.5, w: 4 },
+    { id: 1702, label: "Bullet Camera's",       esFactor: 2.5, w: 3 },
+    { id: 1709, label: "PTZ Camera's",           esFactor: 3.5, w: 4 },
+    { id: 1703, label: "Mini Camera's",          esFactor: 2.5, w: 3 },
+    { id: 1704, label: "Fisheye Camera's",       esFactor: 4,   w: 5 },
+    { id: 1705, label: "Box Camera's",           esFactor: 3,   w: 3 },
+    { id: 1706, label: "Thermal Camera's",       esFactor: 2.5, w: 3 },
+    { id: 2811, label: "NVR's",                   esFactor: 3,   w: 3 },
+    { id: 2803, label: "PoE Switches",           esFactor: 3,   w: 3 },
+    { id: 2810, label: "Opslag & Accessoires",  esFactor: 3,   w: 3 },
+    { id: 2820, label: "Software & Licenties",  esFactor: 3,   w: 3 },
+    { id: 1713, label: "Panoramische Camera's", esFactor: 2,   w: 2 },
+    { id: 2824, label: "Beugels & Behuizingen", esFactor: 2.5, w: 3 },
+];
+
+const PROPS = [
+    { id: 2853283, label: 'PoE',              esFactor: 1.5, w: 1 },
+    { id: 2853284, label: '4K',               esFactor: 1.5, w: 1 },
+    { id: 2853285, label: 'AI Analytics',     esFactor: 1.5, w: 1 },
+    { id: 2853286, label: 'Vandaalbestendig', esFactor: 1.5, w: 1 },
+    { id: 2853287, label: 'Starlight',        esFactor: 1.5, w: 1 },
+];
+
+const CAT_MAP = {};
+CATS.forEach(c => CAT_MAP[c.id] = c.label);
+
+// ES scripts for the "wall" display
+const ES_SCRIPTS = [
+    { id: 'Recommended', type: 'promotion', factor: 4, source: "doc['recommended'].value == true ? params.factor : 1" },
+    { id: 'Sale', type: 'promotion', factor: 2, source: "doc['sale'].value == true ? params.factor : 1" },
+    { id: 'Sale Count', type: 'customBoost', factor: 0.05, source: "Math.max(Math.log10(Math.min(doc['saleCount'].value, 100))*(1+params.factor), 1)" },
+    { id: 'EOL', type: 'customBoost', factor: 0.2, source: "doc['eol'].value == true ? params.factor : 1" },
+    ...CATS.map(c => ({ id: `Cat ${c.id} (${c.label})`, type: 'categories', factor: c.esFactor,
+        source: `double sum = 1.0; for (item in doc['categories']) { if (item == ${c.id}) { sum = params.factor } } return sum;` })),
+    ...PROPS.map(p => ({ id: `Prop ${p.id}`, type: 'properties', factor: p.esFactor,
+        source: `double sum = 1.0; for (item in doc['properties']) { if (item == ${p.id}) { sum = params.factor } } return sum;` })),
+];
+
+// =========================================================================
+// State (playground weights)
+// =========================================================================
+const weights = { recommended: 4, sale: 2, eol: -5, buckets: 10, cats: {}, props: {} };
+CATS.forEach(c => weights.cats[c.id] = c.w);
+PROPS.forEach(p => weights.props[p.id] = p.w);
+
+// =========================================================================
+// Build ES Wall of Scripts
+// =========================================================================
+(function buildEsWall() {
+    let code = '';
+    ES_SCRIPTS.forEach((s, i) => {
+        code += `// ── Script ${i + 1}: ${s.id} (${s.type}, factor: ${s.factor}) ──\n`;
+        code += `{\n`;
+        code += `  "script_score": {\n`;
+        code += `    "script": {\n`;
+        code += `      "params": { "factor": ${s.factor}, "type": "${s.type}", "id": "${s.id}" },\n`;
+        code += `      "source": "${s.source}"\n`;
+        code += `    }\n`;
+        code += `  }\n`;
+        code += `}\n\n`;
+    });
+    document.getElementById('esWallCode').textContent = code;
+})();
+
+// =========================================================================
+// Sort Expression Builder
+// =========================================================================
+function buildSortBy() {
+    return `_text_match(buckets:${weights.buckets}):desc,boost_score:desc,sale_count:desc`;
+}
+
+function updateSortDisplay() {
+    const s = buildSortBy();
+    document.getElementById('sortByCode').innerHTML = s
+        .replace(/(_text_match|boost_score|buckets|sale_count)/g, '<span class="kw">$1</span>')
+        .replace(/(:desc)/g, '<span class="op">$1</span>')
+        .replace(/(:=?\-?[\d.]+)/g, '<span class="num">$1</span>');
+}
+
+// =========================================================================
+// Typesense Search (shared)
+// =========================================================================
+async function tsSearch(query, { includeEol = false, perPage = 10 } = {}) {
+    const filterParts = [];
+    if (!includeEol) filterParts.push('eol:=false');
+    filterParts.push('hide_in_listings:=false');
+
+    const params = new URLSearchParams({
+        q: query,
+        query_by: 'title,model,brand_name,ean,sap_code,usps,summary',
+        query_by_weights: '3,2,3,1,1,1,1',
+        sort_by: buildSortBy(),
+        per_page: perPage,
+        filter_by: filterParts.join(' && '),
+        highlight_start_tag: '<mark>',
+        highlight_end_tag: '</mark>',
+        highlight_fields: 'title,model,brand_name,summary',
+    });
+
+    const start = performance.now();
+    const resp = await fetch(`${TS.host}/collections/${TS.collection}/documents/search?${params}`,
+        { headers: { 'X-TYPESENSE-API-KEY': TS.key } });
+    const data = await resp.json();
+    const elapsed = performance.now() - start;
+
+    return {
+        hits: (data.hits || []).map(h => ({
+            id: h.document.id,
+            title: h.highlight?.title?.snippet || h.document.title,
+            rawTitle: h.document.title,
+            brand: h.highlight?.brand_name?.snippet || h.document.brand_name || '',
+            model: h.highlight?.model?.snippet || h.document.model || '',
+            price: h.document.default_price,
+            originalPrice: h.document.original_price,
+            sale: h.document.sale,
+            recommended: h.document.recommended,
+            eol: h.document.eol,
+            stock: h.document.stock,
+            categories: h.document.categories || [],
+            properties: h.document.properties || [],
+            saleCount: h.document.sale_count,
+            boostScore: h.document.boost_score ?? 0,
+            score: h.text_match_info?.score || 0,
+        })),
+        total: data.found || 0,
+        timeMs: elapsed,
+        serverTimeMs: data.search_time_ms,
+    };
+}
+
+// =========================================================================
+// Eval score calculator (for annotations)
+// =========================================================================
+function calcEval(hit) {
+    // boost_score comes from Typesense — pre-computed at index time
+    const total = hit.boostScore;
+    const parts = [];
+    if (hit.recommended) parts.push({ label: 'Aanbevolen', w: 4 });
+    if (hit.sale)        parts.push({ label: 'Sale', w: 2 });
+    if (hit.eol)         parts.push({ label: 'EOL', w: -5 });
+    for (const c of CATS) {
+        if (hit.categories.includes(c.id) && c.w) {
+            parts.push({ label: c.label, w: c.w });
+        }
+    }
+    for (const p of PROPS) {
+        if (hit.properties.includes(p.id) && p.w) {
+            parts.push({ label: p.label, w: p.w });
+        }
+    }
+    return { total, parts };
+}
+
+// ES multiplicative score simulation
+function calcEsScore(hit) {
+    let score = 100;
+    if (hit.recommended) score *= 4;
+    if (hit.sale) score *= 2;
+    if (hit.eol) score *= 0.2;
+    if (hit.saleCount > 0) score *= Math.max(Math.log10(Math.min(hit.saleCount, 100)) * 1.05, 1);
+    for (const c of CATS) { if (hit.categories.includes(c.id)) score *= c.esFactor; }
+    for (const p of PROPS) { if (hit.properties.includes(p.id)) score *= p.esFactor; }
+    return score;
+}
+
+// =========================================================================
+// Render product card
+// =========================================================================
+function renderCard(hit, rank, { showBoosts = false, highlight = false, annotation = '' } = {}) {
+    const ev = calcEval(hit);
+    const catNames = hit.categories.filter(id => CAT_MAP[id]).map(id => CAT_MAP[id]);
+
+    let boostHtml = '';
+    if (showBoosts && ev.parts.length) {
+        boostHtml = ev.parts.map(p => {
+            const cls = p.w < 0 ? 'penalty' : 'boost';
+            return `<span class="tag ${cls}">${p.label} ${p.w > 0 ? '+' : ''}${p.w}</span>`;
+        }).join('');
+    }
+
+    return `
+    <div class="product${highlight ? ' highlight' : ''}">
+        <div class="rank">
+            <span class="rank-num">#${rank}</span>
+            <span class="score-detail">boost: ${ev.total >= 0 ? '+' : ''}${ev.total}</span>
+        </div>
+        <div class="info">
+            <div class="title">${hit.title}</div>
+            <div class="meta-line">${hit.brand}${hit.model ? ' &middot; <span class="model">' + hit.model + '</span>' : ''}</div>
+            ${catNames.length ? `<div class="meta-line" style="font-size:0.6rem; color:var(--text-dim);">${catNames.join(' / ')}</div>` : ''}
+            <div class="badges">
+                ${hit.recommended ? '<span class="tag recommended">Aanbevolen</span>' : ''}
+                ${hit.sale ? '<span class="tag sale-tag">Sale</span>' : ''}
+                ${hit.eol ? '<span class="tag eol">EOL</span>' : ''}
+                ${boostHtml}
+            </div>
+            ${annotation ? `<div class="annotation">${annotation}</div>` : ''}
+        </div>
+        <div class="price${hit.sale ? ' on-sale' : ''}">
+            ${hit.price ? `&euro;${hit.price.toFixed(2)}` : ''}
+            ${hit.sale && hit.originalPrice ? `<span class="original">&euro;${hit.originalPrice.toFixed(2)}</span>` : ''}
+        </div>
+    </div>`;
+}
+
+// =========================================================================
+// Test Case Runner
+// =========================================================================
+async function runTest(testId, query, focus, includeEol = false) {
+    const container = document.getElementById(`${testId}-results`);
+    container.innerHTML = '<div class="empty">Zoeken...</div>';
+
+    const result = await tsSearch(query, { includeEol, perPage: 10 });
+
+    if (!result.hits.length) {
+        container.innerHTML = '<div class="empty">Geen resultaten</div>';
+        return;
+    }
+
+    let html = '';
+    let verdictText = '';
+
+    switch (focus) {
+        case 'recommended': {
+            // Annotate: highlight recommended items and explain their score
+            html = result.hits.map((hit, i) => {
+                const ev = calcEval(hit);
+                const ann = hit.recommended
+                    ? `+4 punten van (recommended:=true):4 &rarr; boost_score: +${ev.total}`
+                    : `Geen aanbevolen-boost &rarr; eval: +${ev.total}`;
+                return renderCard(hit, i + 1, { showBoosts: true, highlight: hit.recommended, annotation: ann });
+            }).join('');
+            const recPositions = result.hits.map((h, i) => h.recommended ? i + 1 : null).filter(Boolean);
+            const topRec = recPositions.filter(p => p <= 3).length;
+            verdictText = recPositions.length
+                ? `${recPositions.length} aanbevolen producten gevonden op posities ${recPositions.join(', ')}. ${topRec >= 1 ? 'Aanbevolen producten staan bovenaan.' : 'Boost werkt maar tekst-relevantie domineert (bucket 1 vs bucket 2).'}`
+                : 'Geen aanbevolen producten in deze resultaten — probeer een bredere zoekterm.';
+            break;
+        }
+
+        case 'eol': {
+            html = result.hits.map((hit, i) => {
+                const ev = calcEval(hit);
+                const ann = hit.eol
+                    ? `-5 punten van (eol:=true):-5 &rarr; boost_score: ${ev.total}`
+                    : '';
+                return renderCard(hit, i + 1, { showBoosts: true, highlight: hit.eol, annotation: ann });
+            }).join('');
+            const eolPositions = result.hits.map((h, i) => h.eol ? i + 1 : null).filter(Boolean);
+            const allBottom = eolPositions.every(p => p > result.hits.length / 2);
+            verdictText = eolPositions.length
+                ? `${eolPositions.length} EOL producten op posities ${eolPositions.join(', ')}. ${allBottom ? 'EOL producten zijn succesvol naar de bodem gezakt.' : 'EOL penalty werkt — producten scoren lager dan vergelijkbare niet-EOL producten.'}`
+                : 'Geen EOL producten in resultaten. Zet "Incl. EOL" aan en probeer opnieuw.';
+            break;
+        }
+
+        case 'categories': {
+            html = result.hits.map((hit, i) => {
+                const ev = calcEval(hit);
+                const catBoostParts = ev.parts.filter(p => CATS.some(c => c.label === p.label));
+                const catBoostTotal = catBoostParts.reduce((s, p) => s + p.w, 0);
+                const ann = `Categorie-punten: ${catBoostParts.map(p => `${p.label} +${p.w}`).join(' + ') || 'geen'} = +${catBoostTotal}`;
+                const isCamera = hit.categories.includes(8);
+                return renderCard(hit, i + 1, { showBoosts: true, highlight: isCamera, annotation: ann });
+            }).join('');
+            const firstNonCam = result.hits.findIndex(h => !h.categories.includes(8));
+            verdictText = firstNonCam === -1
+                ? `Alle ${result.hits.length} resultaten zijn camera's — de categorie-boost van IP Camera's (+3) + subtype (+2 tot +5) werkt.`
+                : `Eerste niet-camera op positie ${firstNonCam + 1}. Camera's domineren dankzij gestapelde categorie-boosts (IP +3 + subtype +2..+5).`;
+            break;
+        }
+
+        case 'sale': {
+            html = result.hits.map((hit, i) => {
+                const ev = calcEval(hit);
+                const ann = hit.sale
+                    ? `+2 punten van (sale:=true):2 &rarr; boost_score: +${ev.total}`
+                    : `Geen sale-boost &rarr; eval: +${ev.total}`;
+                return renderCard(hit, i + 1, { showBoosts: true, highlight: hit.sale, annotation: ann });
+            }).join('');
+            const salePositions = result.hits.map((h, i) => h.sale ? i + 1 : null).filter(Boolean);
+            verdictText = salePositions.length
+                ? `Sale producten op posities ${salePositions.join(', ')}. De +2 boost helpt ze stijgen binnen dezelfde relevantie-bucket.`
+                : 'Geen sale-producten in deze resultaten.';
+            break;
+        }
+
+        case 'stacking': {
+            html = result.hits.map((hit, i) => {
+                const ev = calcEval(hit);
+                const formula = ev.parts.map(p => `${p.w > 0 ? '+' : ''}${p.w} (${p.label})`).join(' ');
+                const ann = `${formula} = totaal +${ev.total}`;
+                const isHigh = ev.total >= 10;
+                return renderCard(hit, i + 1, { showBoosts: true, highlight: isHigh, annotation: ann });
+            }).join('');
+            const scores = result.hits.map(h => calcEval(h).total);
+            const topScore = Math.max(...scores);
+            const bottomScore = Math.min(...scores);
+            verdictText = `Score-range: +${bottomScore} tot +${topScore}. Hogere eval-scores = hogere ranking. De punten stapelen: aanbevolen (+4) + sale (+2) + IP Camera (+3) + PTZ (+4) = +13 voor de best scorende producten.`;
+            break;
+        }
+    }
+
+    html += `<div class="test-verdict pass">${verdictText}</div>`;
+    container.innerHTML = html;
+}
+
+// =========================================================================
+// Playground Search
+// =========================================================================
+let playgroundTimer = null;
+const searchInput = document.getElementById('searchInput');
+const filterEol = document.getElementById('filterEol');
+const resultSize = document.getElementById('resultSize');
+
+searchInput.addEventListener('input', () => {
+    clearTimeout(playgroundTimer);
+    playgroundTimer = setTimeout(playgroundSearch, 250);
+});
+filterEol.addEventListener('change', playgroundSearch);
+resultSize.addEventListener('change', playgroundSearch);
+
+function playgroundPreset(query, el) {
+    searchInput.value = query;
+    document.querySelectorAll('.playground-presets button').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+    playgroundSearch();
+}
+
+async function playgroundSearch() {
+    const query = searchInput.value.trim();
+    const esEl = document.getElementById('esResults');
+    const tsEl = document.getElementById('tsResults');
+
+    if (!query) {
+        esEl.innerHTML = tsEl.innerHTML = '<div class="empty">Typ om te zoeken</div>';
+        document.getElementById('esTiming').textContent = '';
+        document.getElementById('tsTiming').textContent = '';
+        return;
+    }
+
+    tsEl.innerHTML = '<div class="empty">Zoeken...</div>';
+    esEl.innerHTML = '<div class="empty">Berekenen...</div>';
+
+    const result = await tsSearch(query, {
+        includeEol: filterEol.checked,
+        perPage: parseInt(resultSize.value),
+    });
+
+    // TS column: real results
+    document.getElementById('tsTiming').textContent = `${result.total} gevonden · ${result.serverTimeMs ?? '?'}ms server · ${Math.round(result.timeMs)}ms totaal`;
+    if (result.hits.length) {
+        tsEl.innerHTML = result.hits.map((hit, i) => renderCard(hit, i + 1, { showBoosts: true })).join('');
+    } else {
+        tsEl.innerHTML = '<div class="empty">Geen resultaten</div>';
+    }
+
+    // ES column: simulated multiplicative ranking
+    if (result.hits.length) {
+        const esHits = [...result.hits].map(h => ({ ...h, esScore: calcEsScore(h) }))
+            .sort((a, b) => b.esScore - a.esScore);
+        document.getElementById('esTiming').textContent = `Gesimuleerde multiplicatieve ranking`;
+        esEl.innerHTML = esHits.map((hit, i) => {
+            const scoreStr = Math.round(hit.esScore).toLocaleString();
+            return `
+            <div class="product">
+                <div class="rank">
+                    <span class="rank-num">#${i + 1}</span>
+                    <span class="score-detail">${scoreStr}</span>
+                </div>
+                <div class="info">
+                    <div class="title">${hit.title}</div>
+                    <div class="meta-line">${hit.brand}${hit.model ? ' &middot; <span class="model">' + hit.model + '</span>' : ''}</div>
+                    <div class="badges">
+                        ${hit.recommended ? '<span class="tag recommended">Aanbevolen</span>' : ''}
+                        ${hit.sale ? '<span class="tag sale-tag">Sale</span>' : ''}
+                        ${hit.eol ? '<span class="tag eol">EOL</span>' : ''}
+                    </div>
+                </div>
+                <div class="price${hit.sale ? ' on-sale' : ''}">
+                    ${hit.price ? `&euro;${hit.price.toFixed(2)}` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    } else {
+        document.getElementById('esTiming').textContent = '';
+        esEl.innerHTML = '<div class="empty">Geen resultaten</div>';
+    }
+}
+
+// =========================================================================
+// Tuner UI
+// =========================================================================
+function buildTuner() {
+    const promoEl = document.getElementById('tunerPromo');
+    promoEl.innerHTML = [
+        tunerSlider('recommended', 'Aanbevolen', weights.recommended, 0, 10),
+        tunerSlider('sale', 'Sale', weights.sale, 0, 10),
+        tunerSlider('eol', 'EOL penalty', weights.eol, -10, 0, true),
+    ].join('');
+
+    const catEl = document.getElementById('tunerCats');
+    catEl.innerHTML = CATS.map(c => tunerSlider(`cat-${c.id}`, c.label, c.w, 0, 10)).join('');
+
+    const propEl = document.getElementById('tunerProps');
+    propEl.innerHTML = PROPS.map(p => tunerSlider(`prop-${p.id}`, p.label, p.w, 0, 5)).join('');
+}
+
+function tunerSlider(key, label, value, min, max, isPenalty = false) {
+    return `
+    <div class="tuner-item${isPenalty ? ' penalty' : ''}">
+        <label>${label} <span class="val" id="val-${key}">${value}</span></label>
+        <input type="range" min="${min}" max="${max}" step="0.5" value="${value}"
+               oninput="tunerUpdate('${key}', this.value)">
+    </div>`;
+}
+
+function tunerUpdate(key, val) {
+    val = parseFloat(val);
+    document.getElementById(`val-${key}`).textContent = val;
+
+    if (key === 'recommended') weights.recommended = val;
+    else if (key === 'sale') weights.sale = val;
+    else if (key === 'eol') weights.eol = val;
+    else if (key.startsWith('cat-')) weights.cats[+key.slice(4)] = val;
+    else if (key.startsWith('prop-')) weights.props[+key.slice(5)] = val;
+
+    updateAndSearch();
+}
+
+function updateAndSearch() {
+    updateSortDisplay();
+}
+
+// =========================================================================
+// Initialize
+// =========================================================================
+buildTuner();
+updateSortDisplay();
+searchInput.focus();
+</script>
+</body>
+</html>

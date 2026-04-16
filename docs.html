@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netcamcenter — Typesense POC Documentation</title>
+    <style>
+        :root { --bg:#f7f7f8; --white:#fff; --text:#1a1a2e; --muted:#6b7280; --dim:#9ca3af; --border:#e5e7eb; --accent:#2563eb; --green:#16a34a; --red:#dc2626; --orange:#ea580c; --purple:#7c3aed; --radius:8px; }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.7;}
+        .page{max-width:900px;margin:0 auto;padding:2rem 1.5rem 4rem;}
+        h1{font-size:1.8rem;font-weight:800;margin-bottom:0.25rem;}
+        h1 span{color:var(--accent);}
+        .subtitle{color:var(--muted);font-size:0.9rem;margin-bottom:2rem;}
+        h2{font-size:1.25rem;font-weight:700;margin:2.5rem 0 0.75rem;padding-bottom:0.35rem;border-bottom:2px solid var(--border);}
+        h3{font-size:1rem;font-weight:600;margin:1.5rem 0 0.5rem;color:var(--accent);}
+        p{margin-bottom:0.75rem;font-size:0.9rem;}
+        ul,ol{margin:0 0 1rem 1.25rem;font-size:0.9rem;}
+        li{margin-bottom:0.3rem;}
+        code{font-family:'SF Mono','Fira Code','JetBrains Mono',monospace;font-size:0.82rem;background:#eef2ff;padding:0.1rem 0.35rem;border-radius:3px;color:var(--accent);}
+        pre{background:#1e1e2e;color:#cdd6f4;padding:1rem;border-radius:var(--radius);overflow-x:auto;font-size:0.78rem;line-height:1.5;margin:0.75rem 0 1.25rem;}
+        pre code{background:none;color:inherit;padding:0;}
+        pre .cmt{color:#6c7086;font-style:italic;}
+        pre .kw{color:#cba6f7;}
+        pre .str{color:#a6e3a1;}
+        pre .num{color:#fab387;}
+        table{width:100%;border-collapse:collapse;margin:0.75rem 0 1.25rem;font-size:0.82rem;}
+        th,td{text-align:left;padding:0.4rem 0.6rem;border:1px solid var(--border);}
+        th{background:var(--bg);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.03em;color:var(--muted);}
+        td code{font-size:0.75rem;}
+        .badge{display:inline-block;font-size:0.65rem;font-weight:600;padding:0.1rem 0.4rem;border-radius:3px;margin-right:0.2rem;}
+        .badge.green{background:#f0fdf4;color:var(--green);}
+        .badge.red{background:#fef2f2;color:var(--red);}
+        .badge.orange{background:#fff7ed;color:var(--orange);}
+        .badge.purple{background:#f5f3ff;color:var(--purple);}
+        .callout{padding:0.75rem 1rem;border-radius:var(--radius);margin:1rem 0;font-size:0.85rem;}
+        .callout.info{background:#eff6ff;border-left:3px solid var(--accent);color:#1e40af;}
+        .callout.warn{background:#fff7ed;border-left:3px solid var(--orange);color:#9a3412;}
+        .callout.success{background:#f0fdf4;border-left:3px solid var(--green);color:#166534;}
+        .nav{position:sticky;top:0;background:var(--white);border-bottom:1px solid var(--border);padding:0.6rem 1.5rem;margin:-2rem -1.5rem 2rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center;z-index:10;}
+        .nav a{font-size:0.78rem;color:var(--muted);text-decoration:none;}
+        .nav a:hover{color:var(--accent);}
+        .nav .back{font-weight:600;color:var(--accent);}
+    </style>
+</head>
+<body>
+<div class="page">
+
+<div class="nav">
+    <a class="back" href="search.html">&larr; Terug naar Search</a>
+    <a href="#search-fields">Zoekvelden</a>
+    <a href="#exact-match">Exact Match</a>
+    <a href="#ranking">Ranking</a>
+    <a href="#synonyms">Synoniemen</a>
+    <a href="#curations">Curations</a>
+    <a href="#languages">Talen</a>
+    <a href="#groups">Groepen</a>
+    <a href="#filters">Filters</a>
+    <a href="#fallback">Fallback</a>
+    <a href="#pipeline">Pipeline</a>
+</div>
+
+<h1>Netcamcenter <span>Typesense POC</span></h1>
+<p class="subtitle">Technische documentatie &mdash; hoe de zoekfunctionaliteit werkt, welke configuratie is toegepast, en hoe het te testen.</p>
+
+<!-- ================================================================= -->
+<h2 id="search-fields">Zoekvelden &amp; gewichten</h2>
+
+<p>Elke zoekopdracht doorzoekt 7 velden met verschillende gewichten. Hogere gewichten = meer invloed op de ranking bij een match.</p>
+
+<table>
+    <tr><th>Veld</th><th>Gewicht</th><th>Typo tolerantie</th><th>Doel</th></tr>
+    <tr><td><code>title</code></td><td><code>3</code> (hoogste)</td><td>2 typo's</td><td>Productnaam &mdash; fuzzy zoeken</td></tr>
+    <tr><td><code>model</code></td><td><code>2</code></td><td><strong>0 typo's</strong></td><td>Modelnummer &mdash; exact match</td></tr>
+    <tr><td><code>brand_name</code></td><td><code>3</code></td><td><strong>0 typo's</strong></td><td>Merknaam &mdash; exact match</td></tr>
+    <tr><td><code>ean</code></td><td><code>1</code></td><td><strong>0 typo's</strong></td><td>EAN barcode &mdash; exact match</td></tr>
+    <tr><td><code>sap_code</code></td><td><code>1</code></td><td><strong>0 typo's</strong></td><td>SAP artikelcode &mdash; exact match</td></tr>
+    <tr><td><code>usps</code></td><td><code>1</code></td><td>1 typo</td><td>USP bullet points &mdash; licht fuzzy</td></tr>
+    <tr><td><code>summary</code></td><td><code>1</code></td><td>1 typo</td><td>Productomschrijving &mdash; licht fuzzy</td></tr>
+</table>
+
+<pre><code><span class="kw">query_by</span>:         <span class="str">'title,model,brand_name,ean,sap_code,usps,summary'</span>
+<span class="kw">query_by_weights</span>: <span class="str">'3,2,3,1,1,1,1'</span>
+<span class="kw">num_typos</span>:        <span class="str">'2,0,0,0,0,1,1'</span></code></pre>
+
+<!-- ================================================================= -->
+<h2 id="exact-match">Exact match voor product-/serienummers</h2>
+
+<p>Het veld <code>num_typos</code> wordt per zoekveld ingesteld. De eerste waarde hoort bij het eerste <code>query_by</code> veld, etc.</p>
+
+<h3>Hoe het werkt</h3>
+<ul>
+    <li><strong>model, brand_name, ean, sap_code</strong> &rarr; <code>0</code> typo's. Zoeken op <code>DS-2CD2346G2</code> vindt alleen exacte matches. Een typo als <code>DS-2CD2346G3</code> geeft geen resultaat op het model-veld.</li>
+    <li><strong>title, usps, summary</strong> &rarr; <code>1-2</code> typo's. Zoeken op <code>dome camra</code> vindt alsnog "Dome Camera" producten.</li>
+</ul>
+
+<h3>Testen</h3>
+<table>
+    <tr><th>Zoekterm</th><th>Verwacht resultaat</th><th>Waarom</th></tr>
+    <tr><td><code>DS-2CD2346G2</code></td><td>3 Hikvision Dome Camera's</td><td>Exact model match (0 typos)</td></tr>
+    <tr><td><code>DS-2CD2346G3</code></td><td>0 resultaten (of titel-match)</td><td>Model-veld staat geen typo toe</td></tr>
+    <tr><td><code>AXIS P3245</code></td><td>AXIS P3245-V Dome Camera</td><td>Prefix match op model</td></tr>
+    <tr><td><code>8719999012345</code> (EAN)</td><td>Exact 1 product</td><td>EAN is exact match</td></tr>
+    <tr><td><code>dome camra</code></td><td>Dome Camera's gevonden</td><td>Title-veld staat 2 typo's toe</td></tr>
+</table>
+
+<div class="callout info">Typesense past ook automatisch <strong>token dropping</strong> toe: als "axis dome fisheye" te weinig resultaten geeft, wordt "fisheye" weggelaten totdat er resultaten zijn.</div>
+
+<!-- ================================================================= -->
+<h2 id="ranking">Ranking: boost_score</h2>
+
+<p>De ranking vervangt 22 Elasticsearch Painless scripts met een enkele optelsom, berekend bij het indexeren:</p>
+
+<pre><code><span class="cmt">// Berekend bij import (mock.php / export module)</span>
+<span class="kw">$boost</span> = <span class="num">0</span>;
+<span class="kw">if</span> ($product[<span class="str">'recommended'</span>]) <span class="kw">$boost</span> += <span class="num">4</span>;    <span class="cmt">// ES: factor 4x</span>
+<span class="kw">if</span> ($product[<span class="str">'sale'</span>])        <span class="kw">$boost</span> += <span class="num">2</span>;    <span class="cmt">// ES: factor 2x</span>
+<span class="kw">if</span> ($product[<span class="str">'eol'</span>])         <span class="kw">$boost</span> -= <span class="num">5</span>;    <span class="cmt">// ES: factor 0.2x</span>
+<span class="kw">foreach</span> ($product[<span class="str">'categories'</span>] <span class="kw">as</span> $catId) {   <span class="cmt">// ES: 14 scripts</span>
+    <span class="kw">$boost</span> += $categoryBoosts[$catId] ?? <span class="num">0</span>;
+}
+<span class="kw">foreach</span> ($product[<span class="str">'properties'</span>] <span class="kw">as</span> $propId) {   <span class="cmt">// ES: 5 scripts</span>
+    <span class="kw">$boost</span> += $propertyBoosts[$propId] ?? <span class="num">0</span>;
+}</code></pre>
+
+<h3>Promotie &amp; Status gewichten</h3>
+<table>
+    <tr><th>Conditie</th><th>Gewicht</th><th>ES equivalent</th></tr>
+    <tr><td><span class="badge orange">Aanbevolen</span> <code>recommended:true</code></td><td><code>+4</code></td><td><code>script_score factor: 4</code></td></tr>
+    <tr><td><span class="badge red">Sale</span> <code>sale:true</code></td><td><code>+2</code></td><td><code>script_score factor: 2</code></td></tr>
+    <tr><td>EOL <code>eol:true</code></td><td><code>-5</code></td><td><code>script_score factor: 0.2</code></td></tr>
+</table>
+
+<h3>Categorie gewichten (14 parameters)</h3>
+<table>
+    <tr><th>Categorie</th><th>ID</th><th>Gewicht</th><th>ES factor</th></tr>
+    <tr><td>IP Camera's</td><td>8</td><td><code>+3</code></td><td>2.5x</td></tr>
+    <tr><td>Dome Camera's</td><td>1710</td><td><code>+4</code></td><td>3.5x</td></tr>
+    <tr><td>Bullet Camera's</td><td>1702</td><td><code>+3</code></td><td>2.5x</td></tr>
+    <tr><td>PTZ Camera's</td><td>1709</td><td><code>+4</code></td><td>3.5x</td></tr>
+    <tr><td>Mini Camera's</td><td>1703</td><td><code>+3</code></td><td>2.5x</td></tr>
+    <tr><td>Fisheye Camera's</td><td>1704</td><td><code>+5</code></td><td>4x</td></tr>
+    <tr><td>Box Camera's</td><td>1705</td><td><code>+3</code></td><td>3x</td></tr>
+    <tr><td>Thermal Camera's</td><td>1706</td><td><code>+3</code></td><td>2.5x</td></tr>
+    <tr><td>NVR's</td><td>2811</td><td><code>+3</code></td><td>3x</td></tr>
+    <tr><td>PoE Switches</td><td>2803</td><td><code>+3</code></td><td>3x</td></tr>
+    <tr><td>Opslag &amp; Accessoires</td><td>2810</td><td><code>+3</code></td><td>3x</td></tr>
+    <tr><td>Software &amp; Licenties</td><td>2820</td><td><code>+3</code></td><td>3x</td></tr>
+    <tr><td>Panoramische Camera's</td><td>1713</td><td><code>+2</code></td><td>2x</td></tr>
+    <tr><td>Beugels &amp; Behuizingen</td><td>2824</td><td><code>+3</code></td><td>2.5x</td></tr>
+</table>
+
+<h3>Eigenschap gewichten (5 parameters)</h3>
+<table>
+    <tr><th>Eigenschap</th><th>ID</th><th>Gewicht</th><th>ES factor</th></tr>
+    <tr><td>PoE</td><td>2853283</td><td><code>+1</code></td><td>1.5x</td></tr>
+    <tr><td>4K</td><td>2853284</td><td><code>+1</code></td><td>1.5x</td></tr>
+    <tr><td>AI Analytics</td><td>2853285</td><td><code>+1</code></td><td>1.5x</td></tr>
+    <tr><td>Vandaalbestendig</td><td>2853286</td><td><code>+1</code></td><td>1.5x</td></tr>
+    <tr><td>Starlight</td><td>2853287</td><td><code>+1</code></td><td>1.5x</td></tr>
+</table>
+
+<h3>Sort expressie</h3>
+<pre><code><span class="cmt">// Met zoekterm:</span>
+<span class="kw">sort_by</span>: <span class="str">'_text_match(buckets:10):desc, boost_score:desc, sale_count:desc'</span>
+
+<span class="cmt">// Zonder zoekterm (browse):</span>
+<span class="kw">sort_by</span>: <span class="str">'boost_score:desc, sale_count:desc'</span></code></pre>
+
+<p>Stap 1: Groepeer resultaten in 10 relevantie-buckets. Stap 2: Binnen elke bucket, sorteer op boost_score. Stap 3: Bij gelijke boost_score, sorteer op verkoopaantallen.</p>
+
+<h3>Voorbeeld berekening</h3>
+<p>Een <strong>aanbevolen Dome Camera met PoE en sale-actie</strong>:</p>
+<pre><code>  Aanbevolen:    +<span class="num">4</span>
+  Sale:          +<span class="num">2</span>
+  IP Camera's:   +<span class="num">3</span>   (categorie 8)
+  Dome Camera's: +<span class="num">4</span>   (categorie 1710)
+  PoE:           +<span class="num">1</span>   (eigenschap 2853283)
+  Vandaalbestand:+<span class="num">1</span>   (eigenschap 2853286)
+  <strong>────────────────────</strong>
+  boost_score =  <span class="num">15</span></code></pre>
+
+<!-- ================================================================= -->
+<h2 id="synonyms">Synoniemen</h2>
+
+<p>Synoniemen breiden zoekopdrachten uit zodat gerelateerde termen dezelfde resultaten geven. Per taal geconfigureerd.</p>
+
+<h3>Nederlands (NL)</h3>
+<table>
+    <tr><th>Synoniem groep</th><th>Termen (zoek op een = vind resultaten voor alle)</th></tr>
+    <tr><td>Beveiligingscamera</td><td><code>beveiligingscamera</code> = <code>ip camera</code> = <code>bewakingscamera</code> = <code>security camera</code></td></tr>
+    <tr><td>Recorder / NVR</td><td><code>recorder</code> = <code>nvr</code> = <code>video recorder</code> = <code>netwerk recorder</code> = <code>opname apparaat</code></td></tr>
+    <tr><td>PTZ</td><td><code>ptz</code> = <code>pan tilt zoom</code> = <code>speed dome</code> = <code>draaibare camera</code></td></tr>
+    <tr><td>Dome</td><td><code>dome</code> = <code>dome camera</code> = <code>koepelcamera</code></td></tr>
+    <tr><td>Bullet</td><td><code>bullet</code> = <code>bullet camera</code> = <code>cilindrische camera</code></td></tr>
+    <tr><td>PoE</td><td><code>poe</code> = <code>power over ethernet</code> = <code>poe switch</code></td></tr>
+    <tr><td>Thermal</td><td><code>thermal</code> = <code>warmtebeeld</code> = <code>thermische camera</code></td></tr>
+</table>
+
+<h3>Engels (EN)</h3>
+<table>
+    <tr><th>Synoniem groep</th><th>Termen</th></tr>
+    <tr><td>Security camera</td><td><code>security camera</code> = <code>ip camera</code> = <code>surveillance camera</code> = <code>cctv camera</code></td></tr>
+    <tr><td>Recorder / NVR</td><td><code>recorder</code> = <code>nvr</code> = <code>video recorder</code> = <code>network recorder</code></td></tr>
+    <tr><td>PTZ</td><td><code>ptz</code> = <code>pan tilt zoom</code> = <code>speed dome</code> = <code>rotating camera</code></td></tr>
+    <tr><td>Dome</td><td><code>dome</code> = <code>dome camera</code> = <code>turret camera</code></td></tr>
+    <tr><td>Bullet</td><td><code>bullet</code> = <code>bullet camera</code> = <code>cylinder camera</code></td></tr>
+    <tr><td>Thermal</td><td><code>thermal</code> = <code>thermal imaging</code> = <code>heat camera</code></td></tr>
+</table>
+
+<h3>Duits (DE)</h3>
+<table>
+    <tr><th>Synoniem groep</th><th>Termen</th></tr>
+    <tr><td>Sicherheitskamera</td><td><code>sicherheitskamera</code> = <code>ip kamera</code> = <code>ueberwachungskamera</code> = <code>security camera</code></td></tr>
+    <tr><td>Rekorder / NVR</td><td><code>rekorder</code> = <code>nvr</code> = <code>videorekorder</code> = <code>netzwerk rekorder</code></td></tr>
+    <tr><td>PTZ</td><td><code>ptz</code> = <code>pan tilt zoom</code> = <code>speed dome</code> = <code>schwenk neige kamera</code></td></tr>
+    <tr><td>Dome</td><td><code>dome</code> = <code>dome kamera</code> = <code>kuppelkamera</code></td></tr>
+    <tr><td>Thermal</td><td><code>thermal</code> = <code>waermebild</code> = <code>waermebildkamera</code></td></tr>
+</table>
+
+<!-- ================================================================= -->
+<h2 id="curations">Curations (vastgepinde resultaten)</h2>
+
+<p>Curations (Typesense "overrides") pinnen specifieke producten op vaste posities voor bepaalde zoekopdrachten. Identiek voor alle 3 talen.</p>
+
+<table>
+    <tr><th>Zoekterm bevat</th><th>Actie</th><th>Gepind product</th></tr>
+    <tr><td><code>dome</code></td><td>Pin op #1 en #2</td><td>Dahua IPC-HDBW5442E-ZE (id: 1113)<br>Hanwha Vision XND-9120R (id: 1161)</td></tr>
+    <tr><td><code>ptz</code></td><td>Pin op #1 en #2</td><td>Hikvision DS-2DE4425G2 (id: 1081)<br>Dahua SD6AL245E-Z (id: 1137)</td></tr>
+    <tr><td><code>nvr</code></td><td>Pin op #1</td><td>Bosch DIVAR-3216 32-ch (id: 1311)</td></tr>
+</table>
+
+<div class="callout info">Curations worden aangemaakt via <code>php poc/setup-search.php</code>. Gepinde producten tonen een <span class="badge purple">Gepromoot</span> badge in de zoekresultaten.</div>
+
+<!-- ================================================================= -->
+<h2 id="languages">Multi-taal (NL / EN / DE)</h2>
+
+<p>Elke taal heeft een eigen Typesense collectie met identieke product-ID's, prijzen en categorieeen. Alleen titel, omschrijving, USPs en URI's worden vertaald.</p>
+
+<table>
+    <tr><th>Taal</th><th>Collectie</th><th>Voorbeeld titel</th></tr>
+    <tr><td>Nederlands</td><td><code>products_nl</code></td><td>Hikvision DS-2CD2346G2-I 8MP Dome Camera</td></tr>
+    <tr><td>Engels</td><td><code>products_en</code></td><td>Hikvision DS-2CD2346G2-I 8MP Dome Camera</td></tr>
+    <tr><td>Duits</td><td><code>products_de</code></td><td>Hikvision DS-2CD2346G2-I 8MP Dome-Kamera</td></tr>
+</table>
+
+<p>De taalkeuze in de header schakelt de actieve collectie: <code>products_{lang}</code>. Synoniemen en curations zijn per collectie geconfigureerd.</p>
+
+<!-- ================================================================= -->
+<h2 id="groups">Klantengroepen &amp; prijzen</h2>
+
+<p>Drie klantengroepen met verschillende kortingspercentages. Prijzen zijn voorberekend bij het indexeren.</p>
+
+<table>
+    <tr><th>Groep</th><th>Korting</th><th>Prijsveld</th><th>Voorbeeld (product &euro;500)</th></tr>
+    <tr><td>Eindgebruiker</td><td>0%</td><td><code>default_price</code></td><td>&euro;500,00</td></tr>
+    <tr><td>Reseller</td><td>20%</td><td><code>price_group_reseller</code></td><td>&euro;400,00</td></tr>
+    <tr><td>Installateur</td><td>30%</td><td><code>price_group_installer</code></td><td>&euro;350,00</td></tr>
+</table>
+
+<h3>Prijsfiltering per groep</h3>
+<p>Het prijsbereik-filter (min/max) past automatisch het juiste prijsveld toe op basis van de geselecteerde groep:</p>
+<pre><code><span class="cmt">// Eindgebruiker: filtert op default_price</span>
+<span class="kw">filter_by</span>: <span class="str">'default_price:>=500 && default_price:<=600'</span>
+
+<span class="cmt">// Installateur: filtert op price_group_installer</span>
+<span class="kw">filter_by</span>: <span class="str">'price_group_installer:>=350 && price_group_installer:<=420'</span></code></pre>
+
+<h3>Valuta</h3>
+<table>
+    <tr><th>Valuta</th><th>Prijsveld</th><th>Wisselkoers</th></tr>
+    <tr><td>EUR</td><td><code>default_price</code> (of groepsprijs)</td><td>1:1</td></tr>
+    <tr><td>USD</td><td><code>price_usd</code></td><td>1 EUR = 1.08 USD</td></tr>
+</table>
+
+<!-- ================================================================= -->
+<h2 id="filters">Filtering &amp; facetten</h2>
+
+<h3>Facetten (zijbalk)</h3>
+<table>
+    <tr><th>Facet</th><th>Veldtype</th><th>Filter syntax</th></tr>
+    <tr><td>Categorie</td><td><code>int32[]</code></td><td><code>categories:=[1710,1702]</code></td></tr>
+    <tr><td>Merk</td><td><code>string</code></td><td><code>brand_name:=[`Axis`,`Hikvision`]</code></td></tr>
+    <tr><td>Eigenschappen</td><td><code>int32[]</code></td><td><code>properties:=[2853283]</code></td></tr>
+    <tr><td>Beschikbaarheid</td><td><code>string</code></td><td><code>stock:=[`inStock`]</code></td></tr>
+    <tr><td>Prijs</td><td><code>float</code></td><td><code>default_price:>=100 && default_price:<=500</code></td></tr>
+</table>
+
+<p>Alle categoriefilters gebruiken <code>:=</code> (exact match), niet <code>:</code> (word-level). Dit voorkomt dat categorie 8 ook categorie 80 zou matchen.</p>
+
+<h3>Vaste filters (altijd actief)</h3>
+<pre><code><span class="kw">filter_by</span>: <span class="str">'eol:=false && hide_in_listings:=false'</span>  <span class="cmt">// standaard</span>
+<span class="kw">filter_by</span>: <span class="str">'hide_in_listings:=false'</span>                  <span class="cmt">// met EOL toggle aan</span></code></pre>
+
+<!-- ================================================================= -->
+<h2 id="fallback">Nul-resultaten fallback</h2>
+
+<p>Als een zoekopdracht 0 resultaten oplevert, toont de UI automatisch aanbevolen producten:</p>
+
+<ol>
+    <li>Zoek met de ingevoerde term</li>
+    <li>Als <code>found === 0</code>, doe een tweede query: <code>q=*</code> met <code>filter_by: recommended:=true</code></li>
+    <li>Toon banner: "Geen resultaten gevonden. Bekijk deze aanbevolen producten:"</li>
+    <li>Toon de top 6 aanbevolen producten gesorteerd op <code>boost_score:desc</code></li>
+</ol>
+
+<div class="callout success">Test: zoek op <code>xyznonexistent</code> &mdash; je krijgt 6 aanbevolen producten te zien in plaats van een lege pagina.</div>
+
+<!-- ================================================================= -->
+<h2 id="pipeline">Pipeline &amp; commando's</h2>
+
+<pre><code><span class="cmt"># 1. Start Typesense</span>
+docker compose -f docker-compose.typesense.yml up -d
+
+<span class="cmt"># 2. Genereer mock data (3 talen)</span>
+php poc/mock.php
+
+<span class="cmt"># 3. Importeer in Typesense (alle beschikbare talen)</span>
+php poc/import.php
+
+<span class="cmt"># 4. Configureer synoniemen, curations</span>
+php poc/setup-search.php
+
+<span class="cmt"># 5. Open de zoek-UI</span>
+open poc/search.html
+
+<span class="cmt"># 6. Open de ranking presentatie</span>
+open poc/demo.html
+
+<span class="cmt"># 7. Open deze documentatie</span>
+open poc/docs.html</code></pre>
+
+<h3>Bestanden</h3>
+<table>
+    <tr><th>Bestand</th><th>Doel</th></tr>
+    <tr><td><code>poc/search.html</code></td><td>Klant-zoek-UI met facetten, autocomplete, curations, groepsprijzen</td></tr>
+    <tr><td><code>poc/demo.html</code></td><td>Ranking presentatie (22&rarr;1 story met test cases)</td></tr>
+    <tr><td><code>poc/docs.html</code></td><td>Deze documentatie</td></tr>
+    <tr><td><code>poc/mock.php</code></td><td>Genereert mock data voor 3 talen (403 producten per taal)</td></tr>
+    <tr><td><code>poc/import.php</code></td><td>Importeert JSONL data in Typesense collecties</td></tr>
+    <tr><td><code>poc/setup-search.php</code></td><td>Configureert synoniemen en curations per taal</td></tr>
+    <tr><td><code>docker-compose.typesense.yml</code></td><td>Typesense v28.0 Docker configuratie</td></tr>
+</table>
+
+<h3>Typesense versie</h3>
+<div class="callout warn">
+    <strong>v28.0</strong> wordt gebruikt. v30.x breekt de synoniemen/overrides API (per-collectie endpoints geven 404, globale endpoints ook). v27.x mist <code>_text_match(buckets:N)</code> support.
+</div>
+
+</div>
+</body>
+</html>

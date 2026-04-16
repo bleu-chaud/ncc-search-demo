@@ -8,5 +8,5 @@
  */
 const TS_CONFIG = {
     host: 'https://9cu5ieba701tmydrp-1.a2.typesense.net',
-    key: 'AUhAvZ6rGf4B6X52wOY9buKejIP18Q15',
+    key: 'VmAKKv8Gv48PxqaK2D7F0isg0IH7KBZ6',
 };

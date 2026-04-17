@@ -64,8 +64,8 @@
 
         /* ── Sidebar ── */
         .sidebar { background:var(--white); border-right:1px solid var(--border); padding:0; overflow-y:auto; height:calc(100vh - 56px); position:sticky; top:56px; }
-        .active-filters { display:flex; flex-wrap:wrap; gap:0.3rem; padding:0.5rem 1rem; background:var(--accent-light); border-bottom:1px solid var(--border-light); }
-        .active-filters:empty { display:none; padding:0; }
+        .active-filters { display:flex; flex-wrap:wrap; gap:0.3rem; padding:0.5rem 0; }
+        .active-filters:empty { display:none; }
         .active-tag { display:inline-flex; align-items:center; gap:0.2rem; padding:0.1rem 0.45rem; background:var(--white); border:1px solid var(--accent); border-radius:12px; font-size:0.65rem; color:var(--accent); cursor:pointer; }
         .active-tag:hover { background:var(--accent); color:var(--white); }
         .clear-all { font-size:0.65rem; color:var(--red); cursor:pointer; padding:0.1rem 0.4rem; }
@@ -101,7 +101,7 @@
         .product-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:0.75rem; }
         .product-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; transition:box-shadow 0.15s; display:flex; flex-direction:column; position:relative; }
         .product-card:hover { box-shadow:var(--shadow-md); }
-        .product-card.pinned { border-color:var(--purple); border-width:2px; }
+        .product-card.pinned { border-color:var(--purple); border-width:2px; box-shadow:0 0 0 1px var(--purple-bg), var(--shadow-md); background:linear-gradient(to bottom, var(--purple-bg) 0%, var(--white) 40%); }
 
         .card-img { height:140px; background:var(--bg); display:flex; align-items:center; justify-content:center; color:var(--text-dim); font-size:2rem; position:relative; border-bottom:1px solid var(--border-light); }
         .card-img .camera-icon { opacity:0.25; }
@@ -138,6 +138,31 @@
         .card-stock.limited { color:var(--orange); }
 
         mark { background:#fef08a; padding:0 1px; border-radius:2px; }
+
+        /* Matched property tags on cards */
+        .card-prop-tags { display:flex; flex-wrap:wrap; gap:0.15rem; margin-bottom:0.3rem; }
+        .prop-tag { font-size:0.58rem; padding:0.1rem 0.35rem; border-radius:3px; font-weight:500; background:var(--accent-light); color:var(--accent); border:1px solid var(--accent); }
+
+        /* Content block match on cards */
+        .card-content-match { margin-top:0.3rem; padding:0.3rem 0.4rem; background:#fffbeb; border-left:2px solid #fbbf24; border-radius:0 4px 4px 0; }
+        .card-content-match .match-label { font-size:0.58rem; color:var(--text-dim); display:block; margin-bottom:0.1rem; font-weight:500; text-transform:uppercase; letter-spacing:0.03em; }
+        .card-content-match .match-text { font-size:0.68rem; color:var(--text-muted); line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+        /* Upsell modal */
+        .upsell-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:300; }
+        .upsell-overlay.open { display:flex; align-items:center; justify-content:center; }
+        .upsell-modal { background:var(--white); border-radius:var(--radius); padding:1.25rem; max-width:480px; width:90%; max-height:80vh; overflow-y:auto; box-shadow:var(--shadow-md); }
+        .upsell-modal h3 { font-size:0.9rem; margin-bottom:0.75rem; color:var(--text); }
+        .upsell-modal .upsell-close { float:right; background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-muted); }
+        .upsell-item { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0; border-bottom:1px solid var(--border-light); }
+        .upsell-item:last-child { border-bottom:none; }
+        .upsell-item .ui-brand { font-size:0.65rem; color:var(--accent); font-weight:600; }
+        .upsell-item .ui-title { font-size:0.78rem; font-weight:500; flex:1; }
+        .upsell-item .ui-price { font-size:0.8rem; font-weight:700; color:var(--green); white-space:nowrap; }
+
+        /* Free / Price on application badges */
+        .badge.free { background:var(--green-bg); color:var(--green); }
+        .badge.poa { background:#f0f0f0; color:#6b7280; }
 
         /* ── Pagination ── */
         .pagination { display:flex; justify-content:center; gap:0.25rem; margin-top:1.5rem; padding:1rem 0; }
@@ -286,7 +311,6 @@
 
 <div class="layout">
     <aside class="sidebar" id="sidebar">
-        <div class="active-filters" id="activeFilters"></div>
         <div class="filter-section">
             <div class="filter-title" onclick="toggleSection(this)">Categorie <span class="toggle">&#9660;</span></div>
             <ul class="filter-list" id="facet-categories"></ul>
@@ -295,7 +319,8 @@
             <div class="filter-title" onclick="toggleSection(this)">Merk <span class="toggle">&#9660;</span></div>
             <ul class="filter-list" id="facet-brand_name"></ul>
         </div>
-        <div class="filter-section">
+        <div id="property-groups"><!-- Rendered dynamically by renderPropertyGroups() --></div>
+        <div class="filter-section" style="display:none;">
             <div class="filter-title" onclick="toggleSection(this)">Eigenschappen <span class="toggle">&#9660;</span></div>
             <ul class="filter-list" id="facet-properties"></ul>
         </div>
@@ -315,6 +340,7 @@
     </aside>
 
     <main class="main">
+        <div class="active-filters" id="activeFilters"></div>
         <div class="sort-bar">
             <div>
                 <span class="result-info" id="resultInfo"></span>
@@ -361,7 +387,7 @@ function getColl() { return `products_${LANG}`; }
 const I18N = {
     nl: {
         cats: { 8:"IP Camera's", 1710:"Dome Camera's", 1702:"Bullet Camera's", 1709:"PTZ Camera's", 1704:"Fisheye Camera's", 1705:"Box Camera's", 1706:"Thermal Camera's", 1703:"Mini Camera's", 1713:"Panoramische Camera's", 2811:"NVR's", 2803:"PoE Switches", 2810:"Opslag & Accessoires", 2820:"Software & Licenties", 2824:"Beugels & Behuizingen" },
-        props: { 2853283:'PoE', 2853284:'4K', 2853285:'AI Analytics', 2853286:'Vandaalbestendig', 2853287:'Starlight' },
+        props: {}, // Now handled by PROPERTY_TREE
         stock: { inStock:'Op voorraad', limited:'Beperkt', discontinued:'Niet leverbaar', preOrder:'Pre-order' },
         sort: { recommended:'Aanbevolen', relevance:'Relevantie', priceLow:'Prijs laag \u2192 hoog', priceHigh:'Prijs hoog \u2192 laag', popular:'Populairste' },
         ui: { sortLabel:'Sorteren:', perPage:'Per pagina:', category:'Categorie', brand:'Merk', properties:'Eigenschappen', price:'Prijs', availability:'Beschikbaarheid', options:'Opties', clearAll:'Wis alles', showBoost:'Toon boost breakdown', saleOnly:'Alleen sale producten', recOnly:'Alleen aanbevolen producten', results:'resultaten', products:'producten', loading:'Producten laden...', noResults:'Geen producten gevonden. Pas de filters aan of probeer een andere zoekterm.', noResultsFor:'resultaten voor', recommended:'Aanbevolen', fallback:'Geen resultaten gevonden. Bekijk deze aanbevolen producten:', pinned:'Gepromote resultaten worden getoond voor deze zoekopdracht.', group_enduser:'Eindgebruiker', group_reseller:'Reseller (-20%)', group_installer:'Installateur (-30%)' },
@@ -384,15 +410,68 @@ const I18N = {
 function t() { return I18N[LANG] || I18N.nl; }
 
 const CAT_LABELS = I18N.nl.cats;
-const PROP_LABELS = { 2853283:'PoE', 2853284:'4K', 2853285:'AI Analytics', 2853286:'Vandaalbestendig', 2853287:'Starlight' };
 const STOCK_LABELS = I18N.nl.stock;
 const CAMERA_SUBS = [1710,1702,1709,1704,1705,1706,1703,1713];
 const TOP_CATS = [8,2811,2803,2824];
 
+// Property tree — mirrors real Craft productPropertiesCategory hierarchy
+const PROPERTY_TREE = {
+    10902: { label:{nl:'Camera eigenschappen',en:'Camera Features',de:'Kameraeigenschaften'}, children:{
+        11093:{nl:'Binnen camera',en:'Indoor Camera',de:'Innenkamera'}, 2647:{nl:'Buiten camera',en:'Outdoor Camera',de:'Außenkamera'},
+        737:{nl:'Ingebouwde infrarood',en:'Built-in Infrared',de:'Eingebautes Infrarot'}, 8376237:{nl:'Ingebouwd wit licht',en:'Built-in White Light',de:'Eingebautes Weißlicht'},
+        2648:{nl:'Roestvrij staal',en:'Stainless Steel',de:'Edelstahl'}, 777:{nl:'Vandalismebestendig',en:'Vandal-resistant',de:'Vandalismussicher'},
+        2646:{nl:'Draadloos',en:'Wireless',de:'Drahtlos'}, 2661:{nl:'Analoog',en:'Analog',de:'Analog'},
+    }},
+    11094: { label:{nl:'Basis functionaliteit',en:'Basic Features',de:'Grundfunktionen'}, children:{
+        514:{nl:'Dag en nacht',en:'Day & Night',de:'Tag & Nacht'}, 515:{nl:'Invoer / uitvoer',en:'I/O',de:'Ein-/Ausgang'},
+        2649:{nl:'Audio',en:'Audio',de:'Audio'}, 6623204:{nl:'RPTZ',en:'RPTZ',de:'RPTZ'},
+        11095:{nl:'SD opslag',en:'SD Storage',de:'SD-Speicher'}, 2550459:{nl:'Lichaamstemperatuur',en:'Body Temperature',de:'Körpertemperatur'},
+        328287:{nl:'Verwisselbare lens',en:'Interchangeable Lens',de:'Wechselobjektiv'}, 328288:{nl:'Verwisselbare M12 lens',en:'Interchangeable M12 Lens',de:'Wechsel-M12-Objektiv'},
+    }},
+    2504: { label:{nl:'Resolutie',en:'Resolution',de:'Auflösung'}, children:{
+        439:{nl:'4K (8.3MP) of hoger',en:'4K (8.3MP) or higher',de:'4K (8.3MP) oder höher'}, 1852:{nl:'5MP - 7MP',en:'5MP - 7MP',de:'5MP - 7MP'},
+        1282:{nl:'4MP',en:'4MP',de:'4MP'}, 7626451:{nl:'3MP',en:'3MP',de:'3MP'},
+        242:{nl:'1080p (2MP)',en:'1080p (2MP)',de:'1080p (2MP)'}, 447:{nl:'≤ 720p (1MP)',en:'≤ 720p (1MP)',de:'≤ 720p (1MP)'},
+    }},
+    120045: { label:{nl:'Maximale Beeldhoek',en:'Max Viewing Angle',de:'Max. Blickwinkel'}, children:{
+        324751:{nl:'1°-10°',en:'1°-10°',de:'1°-10°'}, 324752:{nl:'11°-30°',en:'11°-30°',de:'11°-30°'},
+        324753:{nl:'31°-60°',en:'31°-60°',de:'31°-60°'}, 324754:{nl:'61°-90°',en:'61°-90°',de:'61°-90°'},
+        324827:{nl:'91°-100°',en:'91°-100°',de:'91°-100°'}, 324828:{nl:'101°-130°',en:'101°-130°',de:'101°-130°'},
+        324886:{nl:'130°+',en:'130°+',de:'130°+'}, 324993:{nl:'180°-360°',en:'180°-360°',de:'180°-360°'},
+    }},
+    513: { label:{nl:'Optische zoom',en:'Optical Zoom',de:'Optischer Zoom'}, children:{
+        2642:{nl:'1-10x',en:'1-10x',de:'1-10x'}, 2643:{nl:'11-17x',en:'11-17x',de:'11-17x'},
+        2644:{nl:'18-27x',en:'18-27x',de:'18-27x'}, 2645:{nl:'28+',en:'28+',de:'28+'},
+    }},
+    2662: { label:{nl:'Videocompressie',en:'Video Compression',de:'Videokompression'}, children:{
+        2663:{nl:'H264',en:'H264',de:'H264'}, 2664:{nl:'H265',en:'H265',de:'H265'},
+        2665:{nl:'MJPEG',en:'MJPEG',de:'MJPEG'}, 2666:{nl:'MXPEG',en:'MXPEG',de:'MXPEG'}, 6527398:{nl:'WiseStream',en:'WiseStream',de:'WiseStream'},
+    }},
+    2653: { label:{nl:'Power over Ethernet',en:'Power over Ethernet',de:'Power over Ethernet'}, children:{
+        2654:{nl:'15W',en:'15W',de:'15W'}, 2655:{nl:'30W',en:'30W',de:'30W'},
+        2656:{nl:'60W',en:'60W',de:'60W'}, 2657:{nl:'95W',en:'95W',de:'95W'}, 8364657:{nl:'Passthrough',en:'Passthrough',de:'Passthrough'},
+    }},
+    120004: { label:{nl:'Montagebeugels',en:'Mounting Brackets',de:'Montagehalterungen'}, children:{
+        120006:{nl:'Muurmontage',en:'Wall Mount',de:'Wandmontage'}, 120007:{nl:'Mast & hoekmontage',en:'Pole & Corner Mount',de:'Mast- & Eckmontage'},
+        120008:{nl:'Plafondmontage',en:'Ceiling Mount',de:'Deckenmontage'}, 120010:{nl:'Box & conduit montage',en:'Box & Conduit Mount',de:'Box- & Rohrmontage'},
+        120009:{nl:'Pendant kit',en:'Pendant Kit',de:'Pendelhalterung'}, 120012:{nl:'Din clip',en:'DIN Clip',de:'DIN-Clip'},
+        120011:{nl:'Overige montagebeugels',en:'Other Mounts',de:'Sonstige Halterungen'},
+    }},
+};
+const PRIORITY_GROUPS = [10902, 11094, 2504, 120045, 513, 2662, 2653, 120004];
+
+// Helper: look up property child label from tree
+function propLabel(childId) {
+    for (const g of Object.values(PROPERTY_TREE)) {
+        if (g.children[childId]) return g.children[childId][LANG] || g.children[childId].nl || childId;
+    }
+    return childId;
+}
+
 // Boost weights (must match mock.php)
-const BOOST_WEIGHTS = { recommended: 4, sale: 2, eol: -5 };
+const BOOST_WEIGHTS = { recommended: 8, sale: 2, eol: -5 };
 const CAT_BOOSTS = {8:3,1710:4,1702:3,1709:4,1703:3,1704:5,1705:3,1706:3,2811:3,2803:3,2810:3,2820:3,1713:2,2824:3};
-const PROP_BOOSTS = {2853283:1,2853284:1,2853285:1,2853286:1,2853287:1};
+const PROP_BOOSTS = {}; // Property boosts removed — too many IDs for per-property weights
 
 // =========================================================================
 // State
@@ -471,13 +550,17 @@ async function search() {
             sort_by: sortBy,
             filter_by: f.join(' && '),
             facet_by: 'categories,brand_name(sort_by:_alpha:asc),properties,stock',
-            max_facet_values: '30',
+            max_facet_values: '200',
             per_page: S.perPage,
             page: S.page,
             highlight_start_tag: '<mark>',
             highlight_end_tag: '</mark>',
-            highlight_fields: 'title,model,brand_name',
+            highlight_fields: 'title,model,brand_name,content_blocks',
             num_typos: FW.fields.map(f => f.typos).join(','),
+            override_tags: [
+                ...S.filters.categories.map(id => `cat-${id}`),
+                ...S.filters.properties.map(id => `prop-${id}`),
+            ].join(',') || undefined,
         }, { signal: abortCtrl.signal });
         const ms = performance.now() - start;
 
@@ -629,49 +712,116 @@ function acSubmit() {
 // =========================================================================
 // Facets
 // =========================================================================
+// Known facet values — accumulated on first load so items never disappear
+const _knownBrands = new Set();
+let _facetsInitialized = false;
+
+// Build facet DOM once, then update counts in-place (no CLS)
+function initFacets() {
+    if (_facetsInitialized) return;
+    _facetsInitialized = true;
+
+    // Categories — fixed list
+    const catEl = document.getElementById('facet-categories');
+    const allCats = [...TOP_CATS, ...CAMERA_SUBS];
+    catEl.innerHTML = allCats.map(id => {
+        const indent = CAMERA_SUBS.includes(id) ? ' indent' : '';
+        return `<li class="filter-item zero${indent}" data-fid="${id}">
+            <input type="checkbox" onchange="toggleFilter('categories',${id})">
+            <span class="flabel">${(t().cats[id])||id}</span><span class="count">0</span>
+        </li>`;
+    }).join('');
+
+    // Stock — fixed list
+    const stockEl = document.getElementById('facet-stock');
+    const allStock = ['inStock', 'limited', 'preOrder', 'discontinued'];
+    stockEl.innerHTML = allStock.map(s => `<li class="filter-item zero" data-fid="${s}">
+        <input type="checkbox" onchange="toggleFilter('stock','${s}')">
+        <span class="flabel">${(t().stock[s])||s}</span><span class="count">0</span>
+    </li>`).join('');
+
+    // Property groups — fixed structure
+    const container = document.getElementById('property-groups');
+    let html = '';
+    for (const groupId of PRIORITY_GROUPS) {
+        const group = PROPERTY_TREE[groupId];
+        if (!group) continue;
+        const label = group.label[LANG] || group.label.nl;
+        html += `<div class="filter-section" data-group="${groupId}">
+            <div class="filter-title" onclick="toggleSection(this)">
+                ${label} <span class="toggle">&#9660;</span>
+            </div><ul class="filter-list">`;
+        for (const [childId, childLabels] of Object.entries(group.children)) {
+            const childLabel = typeof childLabels === 'object' ? (childLabels[LANG] || childLabels.nl) : childLabels;
+            html += `<li class="filter-item zero" data-fid="${childId}">
+                <input type="checkbox" onchange="toggleFilter('properties',${+childId})">
+                <span class="flabel">${childLabel}</span><span class="count">0</span>
+            </li>`;
+        }
+        html += '</ul></div>';
+    }
+    container.innerHTML = html;
+}
+
 function renderFacets(facets) {
+    initFacets();
+
     for (const facet of facets) {
-        const el = document.getElementById(`facet-${facet.field_name}`);
-        if (!el) continue;
         const counts = facet.counts || [];
+        const countMap = {};
+        for (const c of counts) countMap[c.value] = c.count;
 
         if (facet.field_name === 'categories') {
-            const top = counts.filter(c => TOP_CATS.includes(+c.value)).sort((a,b) => b.count - a.count);
-            const subs = counts.filter(c => CAMERA_SUBS.includes(+c.value)).sort((a,b) => b.count - a.count);
-            el.innerHTML = [...top, ...subs].map(c => {
-                const id = +c.value;
-                const checked = S.filters.categories.includes(id);
-                const indent = CAMERA_SUBS.includes(id) ? ' indent' : '';
-                return `<li class="filter-item${c.count===0?' zero':''}${indent}">
-                    <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('categories',${id})">
-                    <span>${(t().cats[id])||id}</span><span class="count">${c.count}</span>
-                </li>`;
-            }).join('');
+            const el = document.getElementById('facet-categories');
+            for (const li of el.querySelectorAll('[data-fid]')) {
+                const id = li.dataset.fid;
+                const count = countMap[id] || 0;
+                li.querySelector('.count').textContent = count;
+                li.classList.toggle('zero', count === 0);
+                li.querySelector('input').checked = S.filters.categories.includes(+id);
+            }
         } else if (facet.field_name === 'brand_name') {
-            el.innerHTML = counts.map(c => {
-                const checked = S.filters.brand_name.includes(c.value);
-                return `<li class="filter-item${c.count===0?' zero':''}">
-                    <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('brand_name','${c.value.replace(/'/g,"\\'")}')">
-                    <span>${c.value}</span><span class="count">${c.count}</span>
-                </li>`;
-            }).join('');
+            // Brands: accumulate, build new items only for new brands
+            for (const c of counts) _knownBrands.add(c.value);
+            const el = document.getElementById('facet-brand_name');
+            const existing = new Set([...el.querySelectorAll('[data-fid]')].map(li => li.dataset.fid));
+            // Add new brands that weren't in DOM yet
+            for (const brand of [..._knownBrands].sort()) {
+                if (!existing.has(brand)) {
+                    const li = document.createElement('li');
+                    li.className = 'filter-item zero';
+                    li.dataset.fid = brand;
+                    li.innerHTML = `<input type="checkbox" onchange="toggleFilter('brand_name','${brand.replace(/'/g,"\\'")}')">
+                        <span class="flabel">${brand}</span><span class="count">0</span>`;
+                    el.appendChild(li);
+                }
+            }
+            // Update all counts in-place
+            for (const li of el.querySelectorAll('[data-fid]')) {
+                const brand = li.dataset.fid;
+                const count = countMap[brand] || 0;
+                li.querySelector('.count').textContent = count;
+                li.classList.toggle('zero', count === 0);
+                li.querySelector('input').checked = S.filters.brand_name.includes(brand);
+            }
         } else if (facet.field_name === 'properties') {
-            el.innerHTML = counts.map(c => {
-                const id = +c.value;
-                const checked = S.filters.properties.includes(id);
-                return `<li class="filter-item${c.count===0?' zero':''}">
-                    <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('properties',${id})">
-                    <span>${(t().props[id])||id}</span><span class="count">${c.count}</span>
-                </li>`;
-            }).join('');
+            const container = document.getElementById('property-groups');
+            for (const li of container.querySelectorAll('[data-fid]')) {
+                const id = li.dataset.fid;
+                const count = countMap[id] || 0;
+                li.querySelector('.count').textContent = count;
+                li.classList.toggle('zero', count === 0);
+                li.querySelector('input').checked = S.filters.properties.includes(+id);
+            }
         } else if (facet.field_name === 'stock') {
-            el.innerHTML = counts.map(c => {
-                const checked = S.filters.stock.includes(c.value);
-                return `<li class="filter-item${c.count===0?' zero':''}">
-                    <input type="checkbox" ${checked?'checked':''} onchange="toggleFilter('stock','${c.value}')">
-                    <span>${(t().stock[c.value])||c.value}</span><span class="count">${c.count}</span>
-                </li>`;
-            }).join('');
+            const el = document.getElementById('facet-stock');
+            for (const li of el.querySelectorAll('[data-fid]')) {
+                const s = li.dataset.fid;
+                const count = countMap[s] || 0;
+                li.querySelector('.count').textContent = count;
+                li.classList.toggle('zero', count === 0);
+                li.querySelector('input').checked = S.filters.stock.includes(s);
+            }
         }
     }
 }
@@ -709,7 +859,7 @@ function renderActiveFilters() {
     const l = t();
     for (const id of S.filters.categories) tags.push(`<span class="active-tag" onclick="removeFilter('categories',${id})">${l.cats[id]||id} &times;</span>`);
     for (const b of S.filters.brand_name) tags.push(`<span class="active-tag" onclick="removeFilter('brand_name','${b.replace(/'/g,"\\'")}')">${b} &times;</span>`);
-    for (const id of S.filters.properties) tags.push(`<span class="active-tag" onclick="removeFilter('properties',${id})">${l.props[id]||id} &times;</span>`);
+    for (const id of S.filters.properties) tags.push(`<span class="active-tag" onclick="removeFilter('properties',${id})">${propLabel(id)} &times;</span>`);
     for (const s of S.filters.stock) tags.push(`<span class="active-tag" onclick="removeFilter('stock','${s}')">${l.stock[s]||s} &times;</span>`);
     if (tags.length) tags.push(`<span class="clear-all" onclick="clearAll()">${l.ui.clearAll}</span>`);
     el.innerHTML = tags.join('');
@@ -730,8 +880,13 @@ function boostBreakdown(doc) {
     for (const cid of (doc.categories||[])) {
         if (CAT_BOOSTS[cid]) parts.push({ label: CAT_LABELS[cid]||cid, w: CAT_BOOSTS[cid] });
     }
+    // Count property groups present for a simple boost display
+    const propGroups = new Set();
     for (const pid of (doc.properties||[])) {
-        if (PROP_BOOSTS[pid]) parts.push({ label: PROP_LABELS[pid]||pid, w: PROP_BOOSTS[pid] });
+        if (PROPERTY_TREE[pid]) propGroups.add(pid);
+    }
+    if (propGroups.size > 0) {
+        parts.push({ label: `${propGroups.size} prop groups`, w: propGroups.size });
     }
     // Sort: highest weight first, negatives last
     parts.sort((a, b) => b.w - a.w);
@@ -778,7 +933,11 @@ function renderResults(data, isFallback = false) {
     if (isFallback) {
         document.getElementById('pinnedBanner').textContent = t().ui.fallback;
     } else if (data.override_metadata) {
-        document.getElementById('pinnedBanner').textContent = t().ui.pinned;
+        // Show custom banner from override metadata if available
+        const meta = data.override_metadata;
+        const bannerKey = `banner_${LANG}`;
+        const bannerText = meta[bannerKey] || meta.banner || meta.banner_nl || '';
+        document.getElementById('pinnedBanner').textContent = bannerText || t().ui.pinned;
     } else {
         document.getElementById('pinnedBanner').textContent = '';
     }
@@ -801,6 +960,39 @@ function renderResults(data, isFallback = false) {
         if (d.sale) badges += '<span class="badge sale">Sale</span>';
         if (d.eol) badges += '<span class="badge eol">EOL</span>';
         if (d.coming_soon) badges += '<span class="badge new">Nieuw</span>';
+        if (d.free) badges += '<span class="badge free">Gratis</span>';
+        if (d.price_on_application) badges += '<span class="badge poa">Prijs op aanvraag</span>';
+
+        // Content block match snippet (highlight.content_blocks is an array of {snippet, matched_tokens})
+        let contentSnippet = '';
+        const cbHl = hl.content_blocks;
+        if (Array.isArray(cbHl) && cbHl.length) {
+            // Pick the longest snippet (most context) rather than the first
+            const best = cbHl.reduce((a, b) => (b.snippet||'').length > (a.snippet||'').length ? b : a);
+            if (best.snippet) {
+                const matchLabels = {nl:'Gevonden in beschrijving',en:'Found in description',de:'In Beschreibung gefunden'};
+                contentSnippet = `<div class="card-content-match">
+                    <span class="match-label">${matchLabels[LANG]||matchLabels.nl}</span>
+                    <span class="match-text">${best.snippet}</span>
+                </div>`;
+            }
+        }
+
+        // Show active filter properties as tags on the card
+        const activeProps = S.filters.properties;
+        let propTagsHtml = '';
+        if (activeProps.length) {
+            const matched = activeProps.filter(pid => (d.properties||[]).includes(pid));
+            if (matched.length) {
+                propTagsHtml = '<div class="card-prop-tags">' +
+                    matched.map(pid => `<span class="prop-tag">${propLabel(pid)}</span>`).join('') +
+                    '</div>';
+            }
+        }
+
+        // Upsell data attribute
+        const upsellAttr = (d.upsell_ids && d.upsell_ids.length) ? ` onclick="showUpsells(event, [${d.upsell_ids.join(',')}])"` : '';
+        const upsellCursor = (d.upsell_ids && d.upsell_ids.length) ? ' style="cursor:pointer;"' : '';
 
         // Boost breakdown
         let boostHtml = '';
@@ -820,24 +1012,34 @@ function renderResults(data, isFallback = false) {
         const p = getPrice(d);
         const groupLabel = GROUP !== 'enduser' ? `<span style="font-size:0.55rem; color:var(--accent); display:block;">${GROUP === 'installer' ? 'Installateur' : 'Reseller'}</span>` : '';
 
+        // Price display
+        let priceHtml;
+        if (d.price_on_application) {
+            const poaLabels = {nl:'Prijs op aanvraag',en:'Price on application',de:'Preis auf Anfrage'};
+            priceHtml = `<span style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">${poaLabels[LANG]||poaLabels.nl}</span>`;
+        } else if (d.free) {
+            const freeLabels = {nl:'Gratis',en:'Free',de:'Kostenlos'};
+            priceHtml = `<span style="font-weight:700; color:var(--green);">${freeLabels[LANG]||freeLabels.nl}</span>`;
+        } else {
+            priceHtml = `${groupLabel}${p.symbol}${p.price.toFixed(2)}${d.sale && p.origPrice ? `<span class="original">${p.symbol}${p.origPrice.toFixed(2)}</span>` : ''}`;
+        }
+
         return `
-        <div class="product-card${isPinned ? ' pinned' : ''}">
+        <div class="product-card${isPinned ? ' pinned' : ''}"${upsellAttr}${upsellCursor}>
             <div class="card-img"><span class="camera-icon">&#128247;</span>
                 ${badges ? `<div class="card-badges">${badges}</div>` : ''}
             </div>
             <div class="card-body">
                 <div class="card-brand">${brand}</div>
                 <div class="card-title">${title}</div>
-                <div class="card-model">${model}</div>
+                <div class="card-model">${model}${d.model_internal ? ` <span style="color:var(--text-dim);">&middot; ${d.model_internal}</span>` : ''}</div>
                 ${catNames.length ? `<div class="card-cats">${catNames.join(' &middot; ')}</div>` : ''}
                 ${boostHtml}
                 ${usps.length ? `<div class="card-usps">${usps.map(u=>`<span>${u}</span>`).join('')}</div>` : ''}
+                ${propTagsHtml}
+                ${contentSnippet}
                 <div class="card-footer">
-                    <div class="card-price${d.sale ? ' on-sale' : ''}">
-                        ${groupLabel}
-                        ${p.symbol}${p.price.toFixed(2)}
-                        ${d.sale && p.origPrice ? `<span class="original">${p.symbol}${p.origPrice.toFixed(2)}</span>` : ''}
-                    </div>
+                    <div class="card-price${d.sale ? ' on-sale' : ''}">${priceHtml}</div>
                     <div class="card-stock ${stockClass}">${t().stock[d.stock]||d.stock||''}</div>
                 </div>
             </div>
@@ -883,7 +1085,7 @@ function toggleSection(el) {
 
 // Editable boost weights (cloned from defaults, modified by sliders)
 const W = {
-    recommended: 4, sale: 2, eol: -5,
+    recommended: 8, sale: 2, eol: -5,
     cats: {...CAT_BOOSTS},
     props: {...PROP_BOOSTS},
 };
@@ -892,19 +1094,21 @@ const DEFAULTS = JSON.parse(JSON.stringify(W));
 // Editable field weights (query_by_weights + num_typos) — applied live per search
 const FW = {
     fields: [
-        { key: 'title',      label: 'Titel',       weight: 3, typos: 2 },
-        { key: 'model',      label: 'Model',       weight: 2, typos: 0 },
-        { key: 'brand_name', label: 'Merknaam',    weight: 3, typos: 0 },
-        { key: 'ean',        label: 'EAN',         weight: 1, typos: 0 },
-        { key: 'sap_code',   label: 'SAP Code',    weight: 1, typos: 0 },
-        { key: 'usps',       label: 'USPs',        weight: 1, typos: 1 },
-        { key: 'summary',    label: 'Omschrijving',weight: 1, typos: 1 },
+        { key: 'title',          label: 'Titel',         weight: 3, typos: 2 },
+        { key: 'model',          label: 'Model',         weight: 2, typos: 0 },
+        { key: 'brand_name',     label: 'Merknaam',      weight: 3, typos: 0 },
+        { key: 'model_internal', label: 'Product ID',    weight: 2, typos: 0 },
+        { key: 'sap_code',       label: 'SAP Code',      weight: 1, typos: 0 },
+        { key: 'usps',           label: 'USPs',          weight: 1, typos: 1 },
+        { key: 'summary',        label: 'Omschrijving',  weight: 1, typos: 1 },
+        { key: 'content_blocks', label: 'Beschrijving',  weight: 2, typos: 1 },
     ],
 };
 const FW_DEFAULTS = JSON.parse(JSON.stringify(FW));
 
 function switchLang(lang) {
     LANG = lang;
+    _facetsInitialized = false; // Rebuild facet DOM with new language labels
     const l = t();
     // Update placeholder text
     const placeholders = { nl: "Zoek camera's, NVR's, accessoires...", en: "Search cameras, NVRs, accessories...", de: "Kameras, NVRs, Zubehör suchen..." };
@@ -920,16 +1124,31 @@ function switchLang(lang) {
     document.getElementById('sortLabel').textContent = l.ui.sortLabel;
     document.getElementById('perPageLabel').textContent = l.ui.perPage;
 
-    // Translate sidebar titles
-    const sidebarTitles = document.querySelectorAll('.filter-title');
-    const titleKeys = ['category', 'brand', 'properties', 'price', 'availability'];
-    sidebarTitles.forEach((el, i) => {
-        if (titleKeys[i] && l.ui[titleKeys[i]]) {
-            const toggle = el.querySelector('.toggle');
-            el.textContent = l.ui[titleKeys[i]] + ' ';
-            if (toggle) el.appendChild(toggle);
+    // Translate static sidebar titles (category, brand, price, availability — properties are rendered dynamically)
+    const staticTitles = [
+        { sel: '#facet-categories', key: 'category' },
+        { sel: '#facet-brand_name', key: 'brand' },
+        { sel: '#facet-stock', key: 'availability' },
+    ];
+    for (const st of staticTitles) {
+        const section = document.querySelector(st.sel)?.closest('.filter-section');
+        if (section) {
+            const titleEl = section.querySelector('.filter-title');
+            if (titleEl && l.ui[st.key]) {
+                const toggle = titleEl.querySelector('.toggle');
+                titleEl.textContent = l.ui[st.key] + ' ';
+                if (toggle) titleEl.appendChild(toggle);
+            }
         }
-    });
+    }
+    // Price title
+    const priceSections = document.querySelectorAll('.filter-section');
+    for (const s of priceSections) {
+        const title = s.querySelector('.filter-title');
+        if (title && s.querySelector('.price-inputs')) {
+            title.textContent = l.ui.price;
+        }
+    }
 
     // Translate options panel
     document.getElementById('optionsToggle').textContent = l.ui.options;
@@ -970,6 +1189,48 @@ function toggleOptions() {
     document.getElementById('optionsPanel').classList.toggle('open');
     document.getElementById('optionsOverlay').classList.toggle('open');
     document.getElementById('optionsToggle').classList.toggle('active');
+}
+
+// =========================================================================
+// Upsell Modal
+// =========================================================================
+async function showUpsells(event, upsellIds) {
+    event.stopPropagation();
+    if (!upsellIds || !upsellIds.length) return;
+    let overlay = document.getElementById('upsellOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'upsellOverlay';
+        overlay.className = 'upsell-overlay';
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.remove('open'); };
+        overlay.innerHTML = '<div class="upsell-modal" id="upsellModal"></div>';
+        document.body.appendChild(overlay);
+    }
+    const modal = document.getElementById('upsellModal');
+    const relLabels = {nl:'Gerelateerde producten',en:'Related Products',de:'Verwandte Produkte'};
+    modal.innerHTML = `<button class="upsell-close" onclick="document.getElementById('upsellOverlay').classList.remove('open')">&times;</button>
+        <h3>${relLabels[LANG]||relLabels.nl}</h3><div style="color:var(--text-dim);font-size:0.75rem;">Laden...</div>`;
+    overlay.classList.add('open');
+    try {
+        const data = await tsSearch({
+            q: '*', query_by: 'title',
+            filter_by: `id:[${upsellIds.join(',')}]`,
+            per_page: upsellIds.length,
+        });
+        if (!data.hits?.length) { modal.querySelector('div').textContent = 'Geen gerelateerde producten gevonden.'; return; }
+        const items = data.hits.map(h => {
+            const d = h.document;
+            const pr = getPrice(d);
+            return `<div class="upsell-item">
+                <div style="flex:1;"><div class="ui-brand">${d.brand_name}</div><div class="ui-title">${d.title}</div></div>
+                <div class="ui-price">${d.price_on_application ? 'P.O.A.' : d.free ? 'Gratis' : pr.symbol + pr.price.toFixed(2)}</div>
+            </div>`;
+        }).join('');
+        modal.innerHTML = `<button class="upsell-close" onclick="document.getElementById('upsellOverlay').classList.remove('open')">&times;</button>
+            <h3>${relLabels[LANG]||relLabels.nl}</h3>${items}`;
+    } catch (e) {
+        modal.querySelector('div').textContent = 'Fout bij laden: ' + e.message;
+    }
 }
 
 function switchTab(tab, el) {
@@ -1013,17 +1274,14 @@ function buildAdminPanel() {
     }
     html += `</div>`;
 
-    // Property Boosts (5 params)
+    // Property Boosts — now grouped categories, too many for individual sliders
     html += `<div class="admin-section">
-        <div class="admin-section-title">Eigenschap boosts <span class="es-label">ES: 5 Painless scripts</span></div>`;
-    for (const [id, label] of Object.entries(PROP_LABELS)) {
-        const w = W.props[id] ?? 0;
-        html += weightSlider(`prop-${id}`, label, w, 0, 5, 'ES factor: 1.5x');
-    }
-    html += `</div>`;
+        <div class="admin-section-title">Eigenschap boosts <span class="es-label">ES: 5 Painless scripts &rarr; TS: per-group +1</span></div>
+        <p style="font-size:0.7rem; color:var(--text-muted);">Properties are now ${Object.keys(PROPERTY_TREE).length} groups with ~${Object.values(PROPERTY_TREE).reduce((s,g)=>s+Object.keys(g.children).length,0)} total values. Each property group present adds +1 to boost score.</p>
+    </div>`;
 
     // Total count
-    const total = 3 + 14 + Object.keys(PROP_LABELS).length;
+    const total = 3 + 14;
     html += `<div style="text-align:center; font-size:0.7rem; color:var(--text-dim); padding:0.5rem 0; border-top:1px solid var(--border-light);">
         ${total} parameters &mdash; in ES: ${total} Painless scripts<br>
         In Typesense: 1 optelsom bij indexering
@@ -1117,7 +1375,6 @@ function updateWeight(key, val) {
     BOOST_WEIGHTS.sale = W.sale;
     BOOST_WEIGHTS.eol = W.eol;
     for (const [id, v] of Object.entries(W.cats)) CAT_BOOSTS[id] = v;
-    for (const [id, v] of Object.entries(W.props)) PROP_BOOSTS[id] = v;
 }
 
 function resetWeights() {
@@ -1126,7 +1383,6 @@ function resetWeights() {
     BOOST_WEIGHTS.sale = W.sale;
     BOOST_WEIGHTS.eol = W.eol;
     for (const [id, v] of Object.entries(W.cats)) CAT_BOOSTS[id] = v;
-    for (const [id, v] of Object.entries(W.props)) PROP_BOOSTS[id] = v;
     buildAdminPanel();
     document.getElementById('adminStatus').textContent = 'Gewichten gereset naar standaard.';
 }
@@ -1156,9 +1412,12 @@ async function applyWeights() {
             for (const cid of (d.categories || [])) {
                 boost += (W.cats[cid] ?? 0);
             }
+            // Count property groups present → +1 each
+            const groups = new Set();
             for (const pid of (d.properties || [])) {
-                boost += (W.props[pid] ?? 0);
+                if (PROPERTY_TREE[pid]) groups.add(pid);
             }
+            boost += groups.size;
             return JSON.stringify({ id: d.id, boost_score: Math.round(boost) });
         });
 

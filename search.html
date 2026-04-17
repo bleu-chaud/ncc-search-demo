@@ -818,12 +818,14 @@ function renderFacets(facets) {
 
         if (facet.field_name === 'categories') {
             const el = document.getElementById('facet-categories');
+            const hasCatFilter = S.filters.categories.length > 0;
             for (const li of el.querySelectorAll('[data-fid]')) {
                 const id = li.dataset.fid;
                 const count = countMap[id] || 0;
-                li.querySelector('.count').textContent = count;
-                li.classList.toggle('zero', count === 0);
-                li.querySelector('input').checked = S.filters.categories.includes(+id);
+                const isSelected = S.filters.categories.includes(+id);
+                li.querySelector('.count').textContent = hasCatFilter && !isSelected ? '+' : count;
+                li.classList.toggle('zero', count === 0 && !hasCatFilter);
+                li.querySelector('input').checked = isSelected;
             }
         } else if (facet.field_name === 'brand_name') {
             // Brands: accumulate, build new items only for new brands
@@ -842,12 +844,15 @@ function renderFacets(facets) {
                 }
             }
             // Update all counts in-place
+            // Brands use OR — never disable when brands are already selected (disjunctive facet)
+            const hasBrandFilter = S.filters.brand_name.length > 0;
             for (const li of el.querySelectorAll('[data-fid]')) {
                 const brand = li.dataset.fid;
                 const count = countMap[brand] || 0;
-                li.querySelector('.count').textContent = count;
-                li.classList.toggle('zero', count === 0);
-                li.querySelector('input').checked = S.filters.brand_name.includes(brand);
+                const isSelected = S.filters.brand_name.includes(brand);
+                li.querySelector('.count').textContent = hasBrandFilter && !isSelected ? '+' : count;
+                li.classList.toggle('zero', count === 0 && !hasBrandFilter);
+                li.querySelector('input').checked = isSelected;
             }
         } else if (facet.field_name === 'properties') {
             const container = document.getElementById('property-groups');

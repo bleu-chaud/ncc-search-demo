@@ -86,9 +86,9 @@
         .price-inputs { display:flex; gap:0.4rem; align-items:center; margin-top:0.25rem; }
         .price-inputs input { width:100%; padding:0.3rem 0.4rem; border:1px solid var(--border); border-radius:4px; font-size:0.78rem; }
         .price-inputs .sep { color:var(--text-dim); font-size:0.7rem; }
-        .range-inputs { display:flex; gap:0.3rem; align-items:center; margin-top:0.25rem; }
-        .range-inputs select { flex:1; padding:0.3rem 0.2rem; border:1px solid var(--border); border-radius:4px; font-size:0.72rem; background:var(--white); }
-        .range-inputs .sep { color:var(--text-dim); font-size:0.65rem; }
+        .range-inputs { display:flex; gap:0.4rem; align-items:center; margin-top:0.25rem; }
+        .range-inputs input { width:100%; padding:0.3rem 0.4rem; border:1px solid var(--border); border-radius:4px; font-size:0.78rem; }
+        .range-inputs .sep { color:var(--text-dim); font-size:0.7rem; }
 
         /* ── Main ── */
         .main { padding:1rem 1.5rem; }
@@ -463,12 +463,40 @@ const PROPERTY_TREE = {
 };
 const PRIORITY_GROUPS = [10902, 11094, 2504, 120045, 513, 2662, 2653, 120004];
 
-// Range-type property groups — rendered as min/max selects instead of checkboxes
-// Children are in ascending order (low → high)
+// Range-type property groups — rendered as numeric min/max inputs
+// Each child maps to a numeric range [low, high] for overlap matching
 const RANGE_GROUPS = {
-    2653:   { children: [2654, 2655, 2656, 2657] },       // PoE: 15W → 95W (skip Passthrough)
-    120045: { children: [324751, 324752, 324753, 324754, 324827, 324828, 324886, 324993] }, // Beeldhoek: 1° → 360°
-    513:    { children: [2642, 2643, 2644, 2645] },        // Zoom: 1-10x → 28+
+    2653: {
+        unit: 'W', label: {nl:'Watt',en:'Watt',de:'Watt'},
+        children: [
+            { id: 2654, low: 0,  high: 15 },
+            { id: 2655, low: 16, high: 30 },
+            { id: 2656, low: 31, high: 60 },
+            { id: 2657, low: 61, high: 95 },
+        ],
+    },
+    120045: {
+        unit: '°', label: {nl:'Graden',en:'Degrees',de:'Grad'},
+        children: [
+            { id: 324751, low: 1,   high: 10 },
+            { id: 324752, low: 11,  high: 30 },
+            { id: 324753, low: 31,  high: 60 },
+            { id: 324754, low: 61,  high: 90 },
+            { id: 324827, low: 91,  high: 100 },
+            { id: 324828, low: 101, high: 130 },
+            { id: 324886, low: 131, high: 179 },
+            { id: 324993, low: 180, high: 360 },
+        ],
+    },
+    513: {
+        unit: 'x', label: {nl:'Zoom',en:'Zoom',de:'Zoom'},
+        children: [
+            { id: 2642, low: 1,  high: 10 },
+            { id: 2643, low: 11, high: 17 },
+            { id: 2644, low: 18, high: 27 },
+            { id: 2645, low: 28, high: 99 },
+        ],
+    },
 };
 
 // Helper: look up property child label from tree
@@ -530,15 +558,18 @@ async function search() {
     if (S.filters.brand_name.length) f.push(`brand_name:=[${S.filters.brand_name.map(b=>'`'+b+'`').join(',')}]`);
     // Properties use AND — each selected property is a separate filter condition
     for (const pid of S.filters.properties) f.push(`properties:=${pid}`);
-    // Range properties — include all children between min and max as OR within the group
+    // Range properties — find buckets that overlap with the user's numeric min/max
     for (const [gid, range] of Object.entries(S.ranges)) {
-        if (!range.min && !range.max) continue;
-        const ordered = RANGE_GROUPS[gid]?.children || [];
-        const minIdx = range.min ? ordered.indexOf(+range.min) : 0;
-        const maxIdx = range.max ? ordered.indexOf(+range.max) : ordered.length - 1;
-        if (minIdx < 0 || maxIdx < 0) continue;
-        const slice = ordered.slice(minIdx, maxIdx + 1);
-        if (slice.length) f.push(`properties:=[${slice.join(',')}]`);
+        if (range.min === null && range.max === null) continue;
+        const group = RANGE_GROUPS[gid];
+        if (!group) continue;
+        const matching = group.children.filter(c => {
+            // A bucket overlaps if its range intersects [userMin, userMax]
+            const userMin = range.min ?? -Infinity;
+            const userMax = range.max ?? Infinity;
+            return c.high >= userMin && c.low <= userMax;
+        });
+        if (matching.length) f.push(`properties:=[${matching.map(c => c.id).join(',')}]`);
     }
     if (S.filters.stock.length) f.push(`stock:=[${S.filters.stock.map(s=>'`'+s+'`').join(',')}]`);
     // Price filter — match the field the user is actually seeing
@@ -779,17 +810,14 @@ function initFacets() {
             </div>`;
 
         if (isRange) {
-            // Range group — dual min/max selects
-            const ordered = isRange.children;
-            const options = ordered.map(cid => {
-                const cl = group.children[cid];
-                const lbl = typeof cl === 'object' ? (cl[LANG] || cl.nl) : cl;
-                return `<option value="${cid}">${lbl}</option>`;
-            }).join('');
+            // Range group — numeric min/max inputs
+            const unit = isRange.unit || '';
+            const allLow = isRange.children[0].low;
+            const allHigh = isRange.children[isRange.children.length - 1].high;
             html += `<div class="range-inputs" data-range="${groupId}">
-                <select data-role="min" onchange="setRange(${groupId})"><option value="">Min</option>${options}</select>
+                <input type="number" data-role="min" placeholder="Min ${unit}" min="${allLow}" max="${allHigh}" onchange="setRange(${groupId})">
                 <span class="sep">&ndash;</span>
-                <select data-role="max" onchange="setRange(${groupId})"><option value="">Max</option>${options}</select>
+                <input type="number" data-role="max" placeholder="Max ${unit}" min="${allLow}" max="${allHigh}" onchange="setRange(${groupId})">
             </div>`;
         } else {
             // Checkbox group
@@ -879,19 +907,18 @@ function renderFacets(facets) {
 function clearRange(groupId) {
     delete S.ranges[groupId];
     const container = document.querySelector(`[data-range="${groupId}"]`);
-    if (container) container.querySelectorAll('select').forEach(s => s.value = '');
+    if (container) container.querySelectorAll('input').forEach(s => s.value = '');
     S.page = 1;
     search();
 }
 
 function setRange(groupId) {
     const container = document.querySelector(`[data-range="${groupId}"]`);
-    const minSel = container.querySelector('[data-role="min"]');
-    const maxSel = container.querySelector('[data-role="max"]');
-    S.ranges[groupId] = {
-        min: minSel.value || null,
-        max: maxSel.value || null,
-    };
+    const minInput = container.querySelector('[data-role="min"]');
+    const maxInput = container.querySelector('[data-role="max"]');
+    const minVal = minInput.value ? +minInput.value : null;
+    const maxVal = maxInput.value ? +maxInput.value : null;
+    S.ranges[groupId] = { min: minVal, max: maxVal };
     S.page = 1;
     search();
 }
@@ -920,8 +947,8 @@ function clearAll() {
     document.getElementById('fRec').checked = false;
     document.getElementById('priceMin').value = '';
     document.getElementById('priceMax').value = '';
-    // Reset range selects
-    document.querySelectorAll('.range-inputs select').forEach(s => s.value = '');
+    // Reset range inputs
+    document.querySelectorAll('.range-inputs input').forEach(s => s.value = '');
     S.page = 1;
     search();
 }
@@ -936,13 +963,16 @@ function renderActiveFilters() {
     for (const s of S.filters.stock) tags.push(`<span class="active-tag" onclick="removeFilter('stock','${s}')">${l.stock[s]||s} &times;</span>`);
     // Range filters
     for (const [gid, range] of Object.entries(S.ranges)) {
-        if (!range.min && !range.max) continue;
+        if (range.min === null && range.max === null) continue;
         const group = PROPERTY_TREE[gid];
-        if (!group) continue;
+        const rg = RANGE_GROUPS[gid];
+        if (!group || !rg) continue;
         const gLabel = group.label[LANG] || group.label.nl;
-        const minLabel = range.min ? propLabel(+range.min) : '';
-        const maxLabel = range.max ? propLabel(+range.max) : '';
-        const rangeLabel = minLabel && maxLabel ? `${gLabel}: ${minLabel} – ${maxLabel}` : minLabel ? `${gLabel}: ${minLabel}+` : `${gLabel}: – ${maxLabel}`;
+        const unit = rg.unit || '';
+        const rangeLabel = range.min !== null && range.max !== null
+            ? `${gLabel}: ${range.min}${unit} – ${range.max}${unit}`
+            : range.min !== null ? `${gLabel}: ${range.min}${unit}+`
+            : `${gLabel}: – ${range.max}${unit}`;
         tags.push(`<span class="active-tag" onclick="clearRange(${gid})">${rangeLabel} &times;</span>`);
     }
     if (tags.length) tags.push(`<span class="clear-all" onclick="clearAll()">${l.ui.clearAll}</span>`);

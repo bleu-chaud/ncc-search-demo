@@ -86,6 +86,9 @@
         .price-inputs { display:flex; gap:0.4rem; align-items:center; margin-top:0.25rem; }
         .price-inputs input { width:100%; padding:0.3rem 0.4rem; border:1px solid var(--border); border-radius:4px; font-size:0.78rem; }
         .price-inputs .sep { color:var(--text-dim); font-size:0.7rem; }
+        .range-inputs { display:flex; gap:0.3rem; align-items:center; margin-top:0.25rem; }
+        .range-inputs select { flex:1; padding:0.3rem 0.2rem; border:1px solid var(--border); border-radius:4px; font-size:0.72rem; background:var(--white); }
+        .range-inputs .sep { color:var(--text-dim); font-size:0.65rem; }
 
         /* ── Main ── */
         .main { padding:1rem 1.5rem; }
@@ -460,6 +463,14 @@ const PROPERTY_TREE = {
 };
 const PRIORITY_GROUPS = [10902, 11094, 2504, 120045, 513, 2662, 2653, 120004];
 
+// Range-type property groups — rendered as min/max selects instead of checkboxes
+// Children are in ascending order (low → high)
+const RANGE_GROUPS = {
+    2653:   { children: [2654, 2655, 2656, 2657] },       // PoE: 15W → 95W (skip Passthrough)
+    120045: { children: [324751, 324752, 324753, 324754, 324827, 324828, 324886, 324993] }, // Beeldhoek: 1° → 360°
+    513:    { children: [2642, 2643, 2644, 2645] },        // Zoom: 1-10x → 28+
+};
+
 // Helper: look up property child label from tree
 function propLabel(childId) {
     for (const g of Object.values(PROPERTY_TREE)) {
@@ -479,6 +490,7 @@ const PROP_BOOSTS = {}; // Property boosts removed — too many IDs for per-prop
 let S = {
     q: '', page: 1, perPage: 12,
     filters: { categories:[], brand_name:[], properties:[], stock:[] },
+    ranges: {}, // { groupId: { min: childId, max: childId } }
     priceMin: null, priceMax: null,
 };
 
@@ -516,7 +528,18 @@ async function search() {
     if (document.getElementById('fRec').checked) f.push('recommended:=true');
     if (S.filters.categories.length) f.push(`categories:=[${S.filters.categories.join(',')}]`);
     if (S.filters.brand_name.length) f.push(`brand_name:=[${S.filters.brand_name.map(b=>'`'+b+'`').join(',')}]`);
-    if (S.filters.properties.length) f.push(`properties:=[${S.filters.properties.join(',')}]`);
+    // Properties use AND — each selected property is a separate filter condition
+    for (const pid of S.filters.properties) f.push(`properties:=${pid}`);
+    // Range properties — include all children between min and max as OR within the group
+    for (const [gid, range] of Object.entries(S.ranges)) {
+        if (!range.min && !range.max) continue;
+        const ordered = RANGE_GROUPS[gid]?.children || [];
+        const minIdx = range.min ? ordered.indexOf(+range.min) : 0;
+        const maxIdx = range.max ? ordered.indexOf(+range.max) : ordered.length - 1;
+        if (minIdx < 0 || maxIdx < 0) continue;
+        const slice = ordered.slice(minIdx, maxIdx + 1);
+        if (slice.length) f.push(`properties:=[${slice.join(',')}]`);
+    }
     if (S.filters.stock.length) f.push(`stock:=[${S.filters.stock.map(s=>'`'+s+'`').join(',')}]`);
     // Price filter — match the field the user is actually seeing
     // EUR: use group-specific price fields (stored)
@@ -723,7 +746,8 @@ function initFacets() {
 
     // Categories — fixed list
     const catEl = document.getElementById('facet-categories');
-    const allCats = [...TOP_CATS, ...CAMERA_SUBS];
+    // Interleave: IP Camera's first, then its subtypes indented, then remaining top cats
+    const allCats = [8, ...CAMERA_SUBS, ...TOP_CATS.filter(id => id !== 8)];
     catEl.innerHTML = allCats.map(id => {
         const indent = CAMERA_SUBS.includes(id) ? ' indent' : '';
         return `<li class="filter-item zero${indent}" data-fid="${id}">
@@ -740,25 +764,46 @@ function initFacets() {
         <span class="flabel">${(t().stock[s])||s}</span><span class="count">0</span>
     </li>`).join('');
 
-    // Property groups — fixed structure
+    // Property groups — fixed structure, range groups get min/max selects
     const container = document.getElementById('property-groups');
     let html = '';
     for (const groupId of PRIORITY_GROUPS) {
         const group = PROPERTY_TREE[groupId];
         if (!group) continue;
         const label = group.label[LANG] || group.label.nl;
+        const isRange = RANGE_GROUPS[groupId];
+
         html += `<div class="filter-section" data-group="${groupId}">
             <div class="filter-title" onclick="toggleSection(this)">
                 ${label} <span class="toggle">&#9660;</span>
-            </div><ul class="filter-list">`;
-        for (const [childId, childLabels] of Object.entries(group.children)) {
-            const childLabel = typeof childLabels === 'object' ? (childLabels[LANG] || childLabels.nl) : childLabels;
-            html += `<li class="filter-item zero" data-fid="${childId}">
-                <input type="checkbox" onchange="toggleFilter('properties',${+childId})">
-                <span class="flabel">${childLabel}</span><span class="count">0</span>
-            </li>`;
+            </div>`;
+
+        if (isRange) {
+            // Range group — dual min/max selects
+            const ordered = isRange.children;
+            const options = ordered.map(cid => {
+                const cl = group.children[cid];
+                const lbl = typeof cl === 'object' ? (cl[LANG] || cl.nl) : cl;
+                return `<option value="${cid}">${lbl}</option>`;
+            }).join('');
+            html += `<div class="range-inputs" data-range="${groupId}">
+                <select data-role="min" onchange="setRange(${groupId})"><option value="">Min</option>${options}</select>
+                <span class="sep">&ndash;</span>
+                <select data-role="max" onchange="setRange(${groupId})"><option value="">Max</option>${options}</select>
+            </div>`;
+        } else {
+            // Checkbox group
+            html += '<ul class="filter-list">';
+            for (const [childId, childLabels] of Object.entries(group.children)) {
+                const childLabel = typeof childLabels === 'object' ? (childLabels[LANG] || childLabels.nl) : childLabels;
+                html += `<li class="filter-item zero" data-fid="${childId}">
+                    <input type="checkbox" onchange="toggleFilter('properties',${+childId})">
+                    <span class="flabel">${childLabel}</span><span class="count">0</span>
+                </li>`;
+            }
+            html += '</ul>';
         }
-        html += '</ul></div>';
+        html += '</div>';
     }
     container.innerHTML = html;
 }
@@ -826,6 +871,26 @@ function renderFacets(facets) {
     }
 }
 
+function clearRange(groupId) {
+    delete S.ranges[groupId];
+    const container = document.querySelector(`[data-range="${groupId}"]`);
+    if (container) container.querySelectorAll('select').forEach(s => s.value = '');
+    S.page = 1;
+    search();
+}
+
+function setRange(groupId) {
+    const container = document.querySelector(`[data-range="${groupId}"]`);
+    const minSel = container.querySelector('[data-role="min"]');
+    const maxSel = container.querySelector('[data-role="max"]');
+    S.ranges[groupId] = {
+        min: minSel.value || null,
+        max: maxSel.value || null,
+    };
+    S.page = 1;
+    search();
+}
+
 function toggleFilter(field, val) {
     const arr = S.filters[field];
     const i = arr.indexOf(val);
@@ -844,11 +909,14 @@ function removeFilter(field, val) {
 
 function clearAll() {
     S.filters = { categories:[], brand_name:[], properties:[], stock:[] };
+    S.ranges = {};
     S.priceMin = S.priceMax = null;
     document.getElementById('fSale').checked = false;
     document.getElementById('fRec').checked = false;
     document.getElementById('priceMin').value = '';
     document.getElementById('priceMax').value = '';
+    // Reset range selects
+    document.querySelectorAll('.range-inputs select').forEach(s => s.value = '');
     S.page = 1;
     search();
 }
@@ -861,6 +929,17 @@ function renderActiveFilters() {
     for (const b of S.filters.brand_name) tags.push(`<span class="active-tag" onclick="removeFilter('brand_name','${b.replace(/'/g,"\\'")}')">${b} &times;</span>`);
     for (const id of S.filters.properties) tags.push(`<span class="active-tag" onclick="removeFilter('properties',${id})">${propLabel(id)} &times;</span>`);
     for (const s of S.filters.stock) tags.push(`<span class="active-tag" onclick="removeFilter('stock','${s}')">${l.stock[s]||s} &times;</span>`);
+    // Range filters
+    for (const [gid, range] of Object.entries(S.ranges)) {
+        if (!range.min && !range.max) continue;
+        const group = PROPERTY_TREE[gid];
+        if (!group) continue;
+        const gLabel = group.label[LANG] || group.label.nl;
+        const minLabel = range.min ? propLabel(+range.min) : '';
+        const maxLabel = range.max ? propLabel(+range.max) : '';
+        const rangeLabel = minLabel && maxLabel ? `${gLabel}: ${minLabel} – ${maxLabel}` : minLabel ? `${gLabel}: ${minLabel}+` : `${gLabel}: – ${maxLabel}`;
+        tags.push(`<span class="active-tag" onclick="clearRange(${gid})">${rangeLabel} &times;</span>`);
+    }
     if (tags.length) tags.push(`<span class="clear-all" onclick="clearAll()">${l.ui.clearAll}</span>`);
     el.innerHTML = tags.join('');
 }

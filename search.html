@@ -163,6 +163,13 @@
         .upsell-item .ui-title { font-size:0.78rem; font-weight:500; flex:1; }
         .upsell-item .ui-price { font-size:0.8rem; font-weight:700; color:var(--green); white-space:nowrap; }
 
+        /* Trending / popular queries */
+        .trending-bar { padding:0.4rem 1.5rem; font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
+        .trending-bar:empty { display:none; }
+        .trending-label { font-weight:600; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.03em; color:var(--text-dim); white-space:nowrap; }
+        .trending-tag { padding:0.15rem 0.5rem; background:var(--bg); border:1px solid var(--border); border-radius:12px; cursor:pointer; font-size:0.72rem; transition:all 0.15s; }
+        .trending-tag:hover { background:var(--accent-light); border-color:var(--accent); color:var(--accent); }
+
         /* Free / Price on application badges */
         .badge.free { background:var(--green-bg); color:var(--green); }
         .badge.poa { background:#f0f0f0; color:#6b7280; }
@@ -309,6 +316,7 @@
     </div>
 </div>
 
+<div class="trending-bar" id="trendingQueries"></div>
 <div class="typo-banner" id="typoBanner"></div>
 <div class="pinned-banner" id="pinnedBanner"></div>
 
@@ -357,6 +365,7 @@
                     <option value="default_price:asc">Prijs laag &rarr; hoog</option>
                     <option value="default_price:desc">Prijs hoog &rarr; laag</option>
                     <option value="sale_count:desc">Populairste</option>
+                    <option value="click_count:desc">Meest bekeken</option>
                 </select>
                 <label id="perPageLabel">Per pagina:</label>
                 <select id="perPage" onchange="search()">
@@ -527,8 +536,9 @@ let S = {
 // =========================================================================
 let abortCtrl = null;
 
-async function tsSearch(params, { signal } = {}) {
-    const url = `${TS.host}/collections/${getColl()}/documents/search?${new URLSearchParams(params)}`;
+async function tsSearch(params, { signal } = {}, collection = null) {
+    const coll = collection || getColl();
+    const url = `${TS.host}/collections/${coll}/documents/search?${new URLSearchParams(params)}`;
     const resp = await fetch(url, { headers: { 'X-TYPESENSE-API-KEY': TS.key }, signal: signal || undefined });
     return resp.json();
 }
@@ -1105,8 +1115,11 @@ function renderResults(data, isFallback = false) {
         }
 
         // Upsell data attribute
-        const upsellAttr = (d.upsell_ids && d.upsell_ids.length) ? ` onclick="showUpsells(event, [${d.upsell_ids.join(',')}])"` : '';
-        const upsellCursor = (d.upsell_ids && d.upsell_ids.length) ? ' style="cursor:pointer;"' : '';
+        const hasUpsells = d.upsell_ids && d.upsell_ids.length;
+        const upsellAttr = hasUpsells
+            ? ` onclick="trackClick('${d.id}');showUpsells(event, [${d.upsell_ids.join(',')}])"`
+            : ` onclick="trackClick('${d.id}')"`;
+        const upsellCursor = ' style="cursor:pointer;"';
 
         // Boost breakdown
         let boostHtml = '';
@@ -1308,6 +1321,40 @@ function toggleOptions() {
 // =========================================================================
 // Upsell Modal
 // =========================================================================
+// =========================================================================
+// Analytics — click tracking & popular queries
+// =========================================================================
+function trackClick(docId) {
+    // Fire-and-forget click event to Typesense analytics
+    fetch(`${TS.host}/analytics/events`, {
+        method: 'POST',
+        headers: { 'X-TYPESENSE-API-KEY': TS.key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            type: 'click',
+            name: 'product_click',
+            data: { doc_id: String(docId), q: S.q || '*' },
+        }),
+    }).catch(() => {}); // Silently ignore errors
+}
+
+async function loadPopularQueries() {
+    try {
+        const data = await tsSearch({
+            q: '*', query_by: 'q', sort_by: 'count:desc', per_page: '8',
+        }, {}, 'product_queries');
+        const queries = (data.hits || []).map(h => h.document.q).filter(q => q && q !== '*');
+        if (queries.length) {
+            const el = document.getElementById('trendingQueries');
+            if (el) {
+                const trendLabels = {nl:'Populaire zoekopdrachten',en:'Trending searches',de:'Beliebte Suchen'};
+                el.innerHTML = `<span class="trending-label">${trendLabels[LANG]||trendLabels.nl}:</span> ${queries.map(q =>
+                    `<span class="trending-tag" onclick="document.getElementById('q').value='${q.replace(/'/g,"\\'")}';S.q='${q.replace(/'/g,"\\'")}';S.page=1;search();">${q}</span>`
+                ).join('')}`;
+            }
+        }
+    } catch (e) { /* Popular queries not available yet */ }
+}
+
 async function showUpsells(event, upsellIds) {
     event.stopPropagation();
     if (!upsellIds || !upsellIds.length) return;
@@ -1572,6 +1619,7 @@ async function applyWeights() {
 // =========================================================================
 buildAdminPanel();
 search();
+loadPopularQueries(); // Load trending searches (from analytics)
 </script>
 </body>
 </html>

@@ -1326,12 +1326,13 @@ function toggleOptions() {
 // =========================================================================
 function trackClick(docId) {
     // Fire-and-forget click event to Typesense analytics
+    // Event name must match the analytics rule name (click-counter-{lang})
     fetch(`${TS.host}/analytics/events`, {
         method: 'POST',
         headers: { 'X-TYPESENSE-API-KEY': TS.key, 'Content-Type': 'application/json' },
         body: JSON.stringify({
             type: 'click',
-            name: 'product_click',
+            name: `click-counter-${LANG}`,
             data: { doc_id: String(docId), q: S.q || '*' },
         }),
     }).catch(() => {}); // Silently ignore errors
